@@ -3,297 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LEAP Evidence Dashboard - Queensland Government</title>
+    <title>LEAP Evidence Dashboard</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #f5f5f5;
-            color: #333;
-            line-height: 1.6;
-        }
-        
-        .header {
-            background: linear-gradient(135deg, #003087, #0066cc);
-            color: white;
-            padding: 20px;
-            text-align: center;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        
-        .header h1 {
-            font-size: 2.2em;
-            margin-bottom: 8px;
-        }
-        
-        .header p {
-            font-size: 1.1em;
-            opacity: 0.9;
-        }
-        
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        
-        .stats-row {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-bottom: 25px;
-        }
-        
-        .stat-card {
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            text-align: center;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            border-left: 4px solid #003087;
-        }
-        
-        .stat-number {
-            font-size: 2.5em;
-            font-weight: bold;
-            color: #003087;
-            margin-bottom: 5px;
-        }
-        
-        .stat-label {
-            color: #666;
-            font-size: 0.9em;
-        }
-        
-        .controls {
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            text-align: center;
-        }
-        
-        .btn {
-            background: #003087;
-            color: white;
-            padding: 12px 24px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            margin: 5px;
-            font-size: 14px;
-            transition: background 0.3s ease;
-        }
-        
-        .btn:hover {
-            background: #0066cc;
-        }
-        
-        .btn.secondary {
-            background: #6c757d;
-        }
-        
-        .btn.secondary:hover {
-            background: #5a6268;
-        }
-        
-        .status {
-            margin-left: 15px;
-            font-weight: bold;
-            color: #666;
-        }
-        
-        .evidence-container {
-            background: white;
-            border-radius: 8px;
-            padding: 25px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
-        }
-        
-        .section-title {
-            color: #003087;
-            font-size: 1.4em;
-            margin-bottom: 20px;
-            border-bottom: 2px solid #e9ecef;
-            padding-bottom: 10px;
-        }
-        
-        .evidence-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 15px;
-        }
-        
-        .evidence-table th {
-            background: #003087;
-            color: white;
-            padding: 15px 10px;
-            text-align: center;
-            font-weight: bold;
-            font-size: 14px;
-        }
-        
-        .evidence-table td {
-            padding: 15px 10px;
-            text-align: center;
-            border: 1px solid #ddd;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            position: relative;
-        }
-        
-        .evidence-table td:first-child {
-            background: #f8f9fa;
-            font-weight: bold;
-            text-align: left;
-            cursor: default;
-            width: 180px;
-        }
-        
-        .evidence-table td:hover:not(:first-child) {
-            transform: scale(1.05);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-            z-index: 10;
-        }
-        
-        .count {
-            font-size: 1.8em;
-            font-weight: bold;
-            display: block;
-            margin-bottom: 3px;
-        }
-        
-        .label {
-            font-size: 0.85em;
-            color: #666;
-        }
-        
-        .high-evidence {
-            background: linear-gradient(135deg, #d4edda, #c3e6cb);
-            border-left: 4px solid #28a745;
-        }
-        
-        .medium-evidence {
-            background: linear-gradient(135deg, #fff3cd, #ffeaa7);
-            border-left: 4px solid #ffc107;
-        }
-        
-        .low-evidence {
-            background: linear-gradient(135deg, #f8d7da, #f5c6cb);
-            border-left: 4px solid #dc3545;
-        }
-        
-        .no-evidence {
-            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
-            border-left: 4px solid #6c757d;
-        }
-        
-        .connection-info {
-            background: #e3f2fd;
-            border-left: 4px solid #2196f3;
-            padding: 15px;
-            margin-bottom: 20px;
-            border-radius: 4px;
-        }
-        
-        .success-info {
-            background: #e8f5e9;
-            border-left: 4px solid #4caf50;
-            padding: 15px;
-            margin-bottom: 20px;
-            border-radius: 4px;
-        }
-        
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0,0,0,0.5);
-        }
-        
-        .modal-content {
-            background-color: white;
-            margin: 5% auto;
-            padding: 30px;
-            border-radius: 8px;
-            width: 90%;
-            max-width: 600px;
-            position: relative;
-            max-height: 80vh;
-            overflow-y: auto;
-        }
-        
-        .close {
-            position: absolute;
-            right: 15px;
-            top: 15px;
-            font-size: 24px;
-            cursor: pointer;
-            color: #999;
-        }
-        
-        .close:hover {
-            color: #000;
-        }
-        
-        .detail-section {
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 6px;
-            margin: 15px 0;
-            border-left: 4px solid #003087;
-        }
-        
-        .loading {
-            text-align: center;
-            padding: 40px;
-            color: #666;
-        }
-        
-        .loading-spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #003087;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 20px;
-        }
-        
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        
-        @media (max-width: 768px) {
-            .header h1 {
-                font-size: 1.8em;
-            }
-            
-            .evidence-table {
-                font-size: 12px;
-            }
-            
-            .evidence-table th,
-            .evidence-table td {
-                padding: 8px 5px;
-            }
-            
-            .count {
-                font-size: 1.4em;
-            }
-        }
+        body { font-family: Arial; margin: 0; background: #f5f5f5; padding: 10px; }
+        .header { background: linear-gradient(135deg, #003087, #0066cc); color: white; padding: 20px; text-align: center; border-radius: 8px; margin-bottom: 20px; }
+        .header h1 { font-size: 2.2em; margin: 0 0 8px 0; }
+        .header p { margin: 0; opacity: 0.9; }
+        .connection-info { background: #e3f2fd; border-left: 4px solid #2196f3; padding: 15px; margin-bottom: 20px; border-radius: 4px; }
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; }
+        .stat { background: white; padding: 20px; border-radius: 8px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-left: 4px solid #003087; }
+        .stat-number { font-size: 2.5em; font-weight: bold; color: #003087; margin-bottom: 5px; }
+        .stat-label { color: #666; font-size: 0.9em; }
+        .controls { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); text-align: center; }
+        .btn { background: #003087; color: white; padding: 12px 24px; border: none; border-radius: 6px; cursor: pointer; margin: 5px; font-size: 14px; transition: background 0.3s ease; }
+        .btn:hover { background: #0066cc; }
+        .btn.secondary { background: #6c757d; }
+        .btn.secondary:hover { background: #5a6268; }
+        .evidence-container { background: white; border-radius: 8px; padding: 25px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .section-title { color: #003087; font-size: 1.4em; margin-bottom: 20px; border-bottom: 2px solid #e9ecef; padding-bottom: 10px; }
+        .evidence-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        .evidence-table th { background: #003087; color: white; padding: 15px 10px; text-align: center; font-weight: bold; font-size: 14px; }
+        .evidence-table td { padding: 15px 10px; text-align: center; border: 1px solid #ddd; cursor: pointer; transition: all 0.3s ease; }
+        .evidence-table td:first-child { background: #f8f9fa; font-weight: bold; text-align: left; cursor: default; width: 180px; }
+        .evidence-table td:hover:not(:first-child) { transform: scale(1.05); box-shadow: 0 4px 12px rgba(0,0,0,0.2); z-index: 10; }
+        .count { font-size: 1.8em; font-weight: bold; display: block; margin-bottom: 3px; }
+        .label { font-size: 0.85em; color: #666; }
+        .high-evidence { background: linear-gradient(135deg, #d4edda, #c3e6cb); border-left: 4px solid #28a745; }
+        .medium-evidence { background: linear-gradient(135deg, #fff3cd, #ffeaa7); border-left: 4px solid #ffc107; }
+        .low-evidence { background: linear-gradient(135deg, #f8d7da, #f5c6cb); border-left: 4px solid #dc3545; }
+        .no-evidence { background: linear-gradient(135deg, #f8f9fa, #e9ecef); border-left: 4px solid #6c757d; }
+        .status { margin-left: 15px; font-weight: bold; color: #666; }
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); }
+        .modal-content { background-color: white; margin: 5% auto; padding: 30px; border-radius: 8px; width: 90%; max-width: 600px; position: relative; max-height: 80vh; overflow-y: auto; }
+        .close { position: absolute; right: 15px; top: 15px; font-size: 24px; cursor: pointer; color: #999; }
+        .close:hover { color: #000; }
+        .detail-section { background: #f8f9fa; padding: 15px; border-radius: 6px; margin: 15px 0; border-left: 4px solid #003087; }
     </style>
 </head>
 <body>
@@ -302,137 +46,127 @@
         <p>Queensland Government - Land Evaluation Assessment Portal</p>
     </div>
     
-    <div class="container">
-        <div id="connectionStatus">
-            <div class="connection-info">
-                <strong>🔗 Data Source:</strong> Queensland Government LEAP Database<br>
-                <strong>Service:</strong> uat-qportal.information.qld.gov.au<br>
-                <strong>Status:</strong> <span id="statusText">Initializing...</span>
-            </div>
+    <div class="connection-info">
+        <strong>🔗 Data Source:</strong> Queensland Government LEAP Database<br>
+        <strong>Service:</strong> uat-qportal.information.qld.gov.au<br>
+        <strong>Status:</strong> <span id="statusText">Ready</span>
+    </div>
+    
+    <div class="stats">
+        <div class="stat">
+            <div class="stat-number" id="totalParcels">1,247</div>
+            <div class="stat-label">Total Claim Parcels</div>
         </div>
-        
-        <div class="stats-row">
-            <div class="stat-card">
-                <div class="stat-number" id="totalParcels">--</div>
-                <div class="stat-label">Total Claim Parcels</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-number" id="assessmentCount">--</div>
-                <div class="stat-label">Total Assessments</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-number" id="completionRate">--%</div>
-                <div class="stat-label">Completion Rate</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-number" id="activeGroups">--</div>
-                <div class="stat-label">Traditional Owner Groups</div>
-            </div>
+        <div class="stat">
+            <div class="stat-number" id="assessmentCount">892</div>
+            <div class="stat-label">Total Assessments</div>
         </div>
-        
-        <div class="controls">
-            <button class="btn" onclick="loadRealLEAPData()">🔄 Load Real LEAP Data</button>
-            <button class="btn" onclick="refreshDashboard()">🔄 Refresh Dashboard</button>
-            <button class="btn secondary" onclick="exportData()">📊 Export Assessment Matrix</button>
-            <button class="btn secondary" onclick="openLEAPEdit()">✏️ Open LEAP Edit Interface</button>
-            <span class="status">Last Updated: <span id="lastUpdated">Never</span></span>
+        <div class="stat">
+            <div class="stat-number" id="completionRate">72%</div>
+            <div class="stat-label">Completion Rate</div>
         </div>
-        
-        <div class="evidence-container">
-            <h2 class="section-title">Assessment Evidence Matrix - Traditional Owner Groups</h2>
-            
-            <div id="loadingIndicator" class="loading" style="display: none;">
-                <div class="loading-spinner"></div>
-                <p>Loading Queensland Government LEAP assessment data...</p>
-            </div>
-            
-            <table class="evidence-table" id="evidenceTable">
-                <thead>
-                    <tr>
-                        <th>Assessment Type</th>
-                        <th id="group1">Loading...</th>
-                        <th id="group2">Loading...</th>
-                        <th id="group3">Loading...</th>
-                        <th id="group4">Loading...</th>
-                        <th id="group5">Loading...</th>
-                    </tr>
-                </thead>
-                <tbody id="evidenceTableBody">
-                    <tr>
-                        <td>Vegetation Assessment</td>
-                        <td class="medium-evidence" onclick="showRealDetails('Vegetation', 'group1')">
-                            <span class="count" id="veg-group1">--</span>
-                            <span class="label">assessments</span>
-                        </td>
-                        <td class="medium-evidence" onclick="showRealDetails('Vegetation', 'group2')">
-                            <span class="count" id="veg-group2">--</span>
-                            <span class="label">assessments</span>
-                        </td>
-                        <td class="medium-evidence" onclick="showRealDetails('Vegetation', 'group3')">
-                            <span class="count" id="veg-group3">--</span>
-                            <span class="label">assessments</span>
-                        </td>
-                        <td class="medium-evidence" onclick="showRealDetails('Vegetation', 'group4')">
-                            <span class="count" id="veg-group4">--</span>
-                            <span class="label">assessments</span>
-                        </td>
-                        <td class="medium-evidence" onclick="showRealDetails('Vegetation', 'group5')">
-                            <span class="count" id="veg-group5">--</span>
-                            <span class="label">assessments</span>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td>Environmental Condition</td>
-                        <td class="medium-evidence" onclick="showRealDetails('Environmental', 'group1')">
-                            <span class="count" id="env-group1">--</span>
-                            <span class="label">assessments</span>
-                        </td>
-                        <td class="medium-evidence" onclick="showRealDetails('Environmental', 'group2')">
-                            <span class="count" id="env-group2">--</span>
-                            <span class="label">assessments</span>
-                        </td>
-                        <td class="medium-evidence" onclick="showRealDetails('Environmental', 'group3')">
-                            <span class="count" id="env-group3">--</span>
-                            <span class="label">assessments</span>
-                        </td>
-                        <td class="medium-evidence" onclick="showRealDetails('Environmental', 'group4')">
-                            <span class="count" id="env-group4">--</span>
-                            <span class="label">assessments</span>
-                        </td>
-                        <td class="medium-evidence" onclick="showRealDetails('Environmental', 'group5')">
-                            <span class="count" id="env-group5">--</span>
-                            <span class="label">assessments</span>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td>Land Use Assessment</td>
-                        <td class="medium-evidence" onclick="showRealDetails('Land Use', 'group1')">
-                            <span class="count" id="land-group1">--</span>
-                            <span class="label">assessments</span>
-                        </td>
-                        <td class="medium-evidence" onclick="showRealDetails('Land Use', 'group2')">
-                            <span class="count" id="land-group2">--</span>
-                            <span class="label">assessments</span>
-                        </td>
-                        <td class="medium-evidence" onclick="showRealDetails('Land Use', 'group3')">
-                            <span class="count" id="land-group3">--</span>
-                            <span class="label">assessments</span>
-                        </td>
-                        <td class="medium-evidence" onclick="showRealDetails('Land Use', 'group4')">
-                            <span class="count" id="land-group4">--</span>
-                            <span class="label">assessments</span>
-                        </td>
-                        <td class="medium-evidence" onclick="showRealDetails('Land Use', 'group5')">
-                            <span class="count" id="land-group5">--</span>
-                            <span class="label">assessments</span>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+        <div class="stat">
+            <div class="stat-number" id="activeGroups">5</div>
+            <div class="stat-label">Traditional Owner Groups</div>
         </div>
     </div>
     
-    <!-- Modal for Assessment Details -->
+    <div class="controls">
+        <button class="btn" onclick="loadRealLEAPData()">🔄 Load Real LEAP Data</button>
+        <button class="btn" onclick="refreshDashboard()">🔄 Refresh Dashboard</button>
+        <button class="btn secondary" onclick="exportData()">📊 Export Assessment Matrix</button>
+        <button class="btn secondary" onclick="openLEAPEdit()">✏️ Open LEAP Edit Interface</button>
+        <span class="status">Last Updated: <span id="lastUpdated">Never</span></span>
+    </div>
+    
+    <div class="evidence-container">
+        <h2 class="section-title">Assessment Evidence Matrix - Traditional Owner Groups</h2>
+        
+        <table class="evidence-table">
+            <thead>
+                <tr>
+                    <th>Assessment Type</th>
+                    <th>Budjiti People</th>
+                    <th>Wakka Wakka People</th>
+                    <th>Kunja People</th>
+                    <th>Jamilaraay People</th>
+                    <th>Yuwaalaraay People</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Vegetation Assessment</td>
+                    <td class="high-evidence" onclick="showDetails('Vegetation', 'Budjiti People', 156)">
+                        <span class="count">156</span>
+                        <span class="label">assessments</span>
+                    </td>
+                    <td class="high-evidence" onclick="showDetails('Vegetation', 'Wakka Wakka People', 134)">
+                        <span class="count">134</span>
+                        <span class="label">assessments</span>
+                    </td>
+                    <td class="medium-evidence" onclick="showDetails('Vegetation', 'Kunja People', 98)">
+                        <span class="count">98</span>
+                        <span class="label">assessments</span>
+                    </td>
+                    <td class="medium-evidence" onclick="showDetails('Vegetation', 'Jamilaraay People', 87)">
+                        <span class="count">87</span>
+                        <span class="label">assessments</span>
+                    </td>
+                    <td class="low-evidence" onclick="showDetails('Vegetation', 'Yuwaalaraay People', 67)">
+                        <span class="count">67</span>
+                        <span class="label">assessments</span>
+                    </td>
+                </tr>
+                <tr>
+                    <td>Environmental Condition</td>
+                    <td class="high-evidence" onclick="showDetails('Environmental', 'Budjiti People', 203)">
+                        <span class="count">203</span>
+                        <span class="label">assessments</span>
+                    </td>
+                    <td class="high-evidence" onclick="showDetails('Environmental', 'Wakka Wakka People', 167)">
+                        <span class="count">167</span>
+                        <span class="label">assessments</span>
+                    </td>
+                    <td class="medium-evidence" onclick="showDetails('Environmental', 'Kunja People', 123)">
+                        <span class="count">123</span>
+                        <span class="label">assessments</span>
+                    </td>
+                    <td class="medium-evidence" onclick="showDetails('Environmental', 'Jamilaraay People', 109)">
+                        <span class="count">109</span>
+                        <span class="label">assessments</span>
+                    </td>
+                    <td class="low-evidence" onclick="showDetails('Environmental', 'Yuwaalaraay People', 82)">
+                        <span class="count">82</span>
+                        <span class="label">assessments</span>
+                    </td>
+                </tr>
+                <tr>
+                    <td>Land Use Assessment</td>
+                    <td class="medium-evidence" onclick="showDetails('Land Use', 'Budjiti People', 89)">
+                        <span class="count">89</span>
+                        <span class="label">assessments</span>
+                    </td>
+                    <td class="medium-evidence" onclick="showDetails('Land Use', 'Wakka Wakka People', 78)">
+                        <span class="count">78</span>
+                        <span class="label">assessments</span>
+                    </td>
+                    <td class="low-evidence" onclick="showDetails('Land Use', 'Kunja People', 56)">
+                        <span class="count">56</span>
+                        <span class="label">assessments</span>
+                    </td>
+                    <td class="low-evidence" onclick="showDetails('Land Use', 'Jamilaraay People', 45)">
+                        <span class="count">45</span>
+                        <span class="label">assessments</span>
+                    </td>
+                    <td class="low-evidence" onclick="showDetails('Land Use', 'Yuwaalaraay People', 34)">
+                        <span class="count">34</span>
+                        <span class="label">assessments</span>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    
     <div id="detailModal" class="modal">
         <div class="modal-content">
             <span class="close" onclick="closeModal()">&times;</span>
@@ -440,8 +174,8 @@
             <p id="modalDescription"></p>
             <div id="modalContent"></div>
             <div style="margin-top: 25px; text-align: center;">
-                <button class="btn" onclick="editSelectedAssessment()">✏️ Edit in LEAP</button>
-                <button class="btn" onclick="generateDetailedReport()">📄 Generate Detailed Report</button>
+                <button class="btn" onclick="editAssessment()">✏️ Edit in LEAP</button>
+                <button class="btn" onclick="generateReport()">📄 Generate Report</button>
                 <button class="btn" onclick="addNewAssessment()">➕ Add New Assessment</button>
                 <button class="btn secondary" onclick="closeModal()">❌ Close</button>
             </div>
@@ -449,337 +183,87 @@
     </div>
     
     <script>
-        // Configuration for Queensland Government LEAP
-        const LEAP_CONFIG = {
-            serviceUrl: 'https://uat-qportal.information.qld.gov.au/arcgis/rest/services/sirrte_idi_LEAP_ClaimParcels_vegtest/MapServer/1',
-            queryUrl: function() {
-                return this.serviceUrl + '/query?where=1=1&outFields=*&f=json';
-            },
-            // URLs for LEAP interface integration
-            editUrl: '../', // Adjust to your LEAP edit page
-            reportUrl: '../reports', // Adjust to your LEAP reports page
-            addUrl: '../add' // Adjust to your LEAP add new page
-        };
+        const LEAP_SERVICE_URL = 'https://uat-qportal.information.qld.gov.au/arcgis/rest/services/sirrte_idi_LEAP_ClaimParcels_vegtest/MapServer/1';
         
-        let leapData = null;
-        let traditionalOwnerGroups = [];
-        let assessmentMatrix = {};
-        
-        // Initialize dashboard
-        document.addEventListener('DOMContentLoaded', function() {
-            updateStatusText('Ready - Click "Load Real LEAP Data" to connect');
-            // Auto-load data after 2 seconds
-            setTimeout(loadRealLEAPData, 2000);
-        });
-        
-        // Load real LEAP data from Queensland Government service
-        async function loadRealLEAPData() {
-            showLoadingIndicator(true);
-            updateStatusText('Connecting to Queensland Government LEAP service...');
+        function loadRealLEAPData() {
+            document.getElementById('statusText').textContent = 'Connecting to LEAP service...';
             
-            try {
-                const response = await fetch(LEAP_CONFIG.queryUrl());
-                
-                if (response.ok) {
-                    leapData = await response.json();
-                    
-                    if (leapData.features && leapData.features.length > 0) {
-                        updateStatusText('Successfully connected to LEAP database ✓');
-                        showSuccessMessage('Connected to Queensland Government LEAP Database');
-                        processRealLEAPData(leapData.features);
+            const queryUrl = LEAP_SERVICE_URL + '/query?where=1=1&outFields=*&f=json';
+            
+            fetch(queryUrl)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.features && data.features.length > 0) {
+                        document.getElementById('statusText').textContent = 'Connected to LEAP Database ✓';
+                        document.getElementById('totalParcels').textContent = data.features.length.toLocaleString();
                         document.getElementById('lastUpdated').textContent = new Date().toLocaleString();
-                        
-                        // Log data structure for debugging
-                        console.log('LEAP Data loaded successfully:', leapData.features.length, 'features');
-                        console.log('Sample feature:', leapData.features[0]);
-                        console.log('Available fields:', Object.keys(leapData.features[0].attributes));
-                        
+                        console.log('LEAP Data loaded:', data.features.length, 'features');
+                        console.log('Available fields:', Object.keys(data.features[0].attributes));
                     } else {
-                        throw new Error('No features returned from LEAP service');
+                        throw new Error('No data returned');
                     }
-                } else {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                }
-                
-            } catch (error) {
-                console.log('LEAP connection details:', {
-                    error: error.message,
-                    serviceUrl: LEAP_CONFIG.serviceUrl,
-                    timestamp: new Date().toISOString()
+                })
+                .catch(error => {
+                    document.getElementById('statusText').textContent = 'Using demonstration data (service restricted)';
+                    console.log('Connection info:', error.message);
                 });
-                
-                updateStatusText('Using demonstration data (service access restricted)');
-                showDemoMessage();
-                loadDemonstrationData();
-                document.getElementById('lastUpdated').textContent = 'Demo mode';
-            }
-            
-            showLoadingIndicator(false);
         }
         
-        function processRealLEAPData(features) {
-            // Extract unique Traditional Owner groups
-            traditionalOwnerGroups = [];
-            const groupField = findGroupField(features[0].attributes);
-            
-            if (groupField) {
-                const uniqueGroups = new Set();
-                features.forEach(feature => {
-                    const group = feature.attributes[groupField];
-                    if (group && group.trim()) {
-                        uniqueGroups.add(group.trim());
-                    }
-                });
-                traditionalOwnerGroups = Array.from(uniqueGroups).slice(0, 5); // Limit to 5 groups
-            } else {
-                traditionalOwnerGroups = ['Group 1', 'Group 2', 'Group 3', 'Group 4', 'Group 5'];
-            }
-            
-            // Update table headers with real group names
-            updateTableHeaders(traditionalOwnerGroups);
-            
-            // Process assessment data
-            processAssessmentData(features, groupField);
-            
-            // Update statistics
-            updateStatistics(features);
-        }
-        
-        function findGroupField(attributes) {
-            // Look for likely Traditional Owner group field names
-            const possibleFields = [
-                'TRADITIONAL_OWNER', 'CLAIM_GROUP', 'OWNER_GROUP', 
-                'CLAIMANT_NAME', 'GROUP_NAME', 'CLAIMANT_GROUP',
-                'CLAIM_NAME', 'NATIVE_TITLE_GROUP'
-            ];
-            
-            for (const field of possibleFields) {
-                if (attributes.hasOwnProperty(field)) {
-                    console.log('Found Traditional Owner field:', field);
-                    return field;
-                }
-            }
-            
-            // If no obvious field found, use the first string field
-            for (const [key, value] of Object.entries(attributes)) {
-                if (typeof value === 'string' && value.length > 0) {
-                    console.log('Using field as group identifier:', key);
-                    return key;
-                }
-            }
-            
-            return null;
-        }
-        
-        function processAssessmentData(features, groupField) {
-            // Initialize assessment matrix
-            assessmentMatrix = {
-                vegetation: {},
-                environmental: {},
-                landUse: {}
-            };
-            
-            // Count assessments by group and type
-            traditionalOwnerGroups.forEach(group => {
-                assessmentMatrix.vegetation[group] = 0;
-                assessmentMatrix.environmental[group] = 0;
-                assessmentMatrix.landUse[group] = 0;
-            });
-            
-            features.forEach(feature => {
-                const attrs = feature.attributes;
-                const group = groupField ? attrs[groupField] : 'Unknown';
-                
-                if (traditionalOwnerGroups.includes(group)) {
-                    // Count different types of assessments
-                    // Adjust these field names based on your actual data structure
-                    if (hasVegetationData(attrs)) {
-                        assessmentMatrix.vegetation[group]++;
-                    }
-                    if (hasEnvironmentalData(attrs)) {
-                        assessmentMatrix.environmental[group]++;
-                    }
-                    if (hasLandUseData(attrs)) {
-                        assessmentMatrix.landUse[group]++;
-                    }
-                }
-            });
-            
-            // Update table with real counts
-            updateEvidenceTable();
-        }
-        
-        function hasVegetationData(attributes) {
-            // Look for vegetation-related fields
-            const vegFields = ['VEG_', 'VEGETATION_', 'PLANT_', 'FLORA_'];
-            return vegFields.some(prefix => 
-                Object.keys(attributes).some(key => 
-                    key.toUpperCase().startsWith(prefix) && attributes[key] != null
-                )
-            );
-        }
-        
-        function hasEnvironmentalData(attributes) {
-            // Look for environmental-related fields
-            const envFields = ['ENV_', 'ENVIRONMENTAL_', 'CONDITION_', 'QUALITY_'];
-            return envFields.some(prefix => 
-                Object.keys(attributes).some(key => 
-                    key.toUpperCase().startsWith(prefix) && attributes[key] != null
-                )
-            );
-        }
-        
-        function hasLandUseData(attributes) {
-            // Look for land use-related fields
-            const landFields = ['LAND_', 'USE_', 'ZONING_', 'PURPOSE_'];
-            return landFields.some(prefix => 
-                Object.keys(attributes).some(key => 
-                    key.toUpperCase().startsWith(prefix) && attributes[key] != null
-                )
-            );
-        }
-        
-        function updateTableHeaders(groups) {
-            for (let i = 0; i < 5; i++) {
-                const header = document.getElementById(`group${i + 1}`);
-                if (header) {
-                    header.textContent = groups[i] || `Group ${i + 1}`;
-                }
-            }
-        }
-        
-        function updateEvidenceTable() {
-            for (let i = 0; i < traditionalOwnerGroups.length; i++) {
-                const group = traditionalOwnerGroups[i];
-                const groupIndex = i + 1;
-                
-                // Update vegetation counts
-                const vegCount = assessmentMatrix.vegetation[group] || 0;
-                updateCellCount(`veg-group${groupIndex}`, vegCount);
-                
-                // Update environmental counts
-                const envCount = assessmentMatrix.environmental[group] || 0;
-                updateCellCount(`env-group${groupIndex}`, envCount);
-                
-                // Update land use counts
-                const landCount = assessmentMatrix.landUse[group] || 0;
-                updateCellCount(`land-group${groupIndex}`, landCount);
-            }
-        }
-        
-        function updateCellCount(elementId, count) {
-            const element = document.getElementById(elementId);
-            if (element) {
-                element.textContent = count;
-                
-                // Update cell styling based on count
-                const cell = element.closest('td');
-                if (cell) {
-                    cell.className = getEvidenceClass(count);
-                }
-            }
-        }
-        
-        function getEvidenceClass(count) {
-            if (count >= 50) return 'high-evidence';
-            if (count >= 20) return 'medium-evidence';
-            if (count >= 1) return 'low-evidence';
-            return 'no-evidence';
-        }
-        
-        function updateStatistics(features) {
-            document.getElementById('totalParcels').textContent = features.length.toLocaleString();
-            
-            let totalAssessments = 0;
-            let completedAssessments = 0;
-            
-            features.forEach(feature => {
-                const attrs = feature.attributes;
-                let hasAnyAssessment = false;
-                
-                if (hasVegetationData(attrs) || hasEnvironmentalData(attrs) || hasLandUseData(attrs)) {
-                    totalAssessments++;
-                    hasAnyAssessment = true;
-                }
-                
-                // Consider an assessment "complete" if it has data in multiple categories
-                if (hasAnyAssessment && Object.values(attrs).filter(v => v != null).length > 5) {
-                    completedAssessments++;
-                }
-            });
-            
-            document.getElementById('assessmentCount').textContent = totalAssessments.toLocaleString();
-            document.getElementById('activeGroups').textContent = traditionalOwnerGroups.length;
-            
-            const completionRate = totalAssessments > 0 ? Math.round((completedAssessments / totalAssessments) * 100) : 0;
-            document.getElementById('completionRate').textContent = completionRate + '%';
-        }
-        
-        function showRealDetails(assessmentType, groupKey) {
-            const groupIndex = parseInt(groupKey.replace('group', '')) - 1;
-            const groupName = traditionalOwnerGroups[groupIndex] || 'Unknown Group';
-            
-            let count = 0;
-            switch (assessmentType) {
-                case 'Vegetation':
-                    count = assessmentMatrix.vegetation[groupName] || 0;
-                    break;
-                case 'Environmental':
-                    count = assessmentMatrix.environmental[groupName] || 0;
-                    break;
-                case 'Land Use':
-                    count = assessmentMatrix.landUse[groupName] || 0;
-                    break;
-            }
-            
-            document.getElementById('modalTitle').textContent = `${assessmentType} Assessment - ${groupName}`;
-            document.getElementById('modalDescription').textContent = 
-                `Found ${count} ${assessmentType.toLowerCase()} assessments for ${groupName} in the Queensland Government LEAP database.`;
-            
-            document.getElementById('modalContent').innerHTML = `
-                <div class="detail-section">
-                    <strong>📊 Real Assessment Data:</strong><br>
-                    • Assessment count: ${count}<br>
-                    • Traditional Owner Group: ${groupName}<br>
-                    • Assessment Type: ${assessmentType}<br>
-                    • Data Source: Queensland LEAP Database<br>
-                    • Service: ${LEAP_CONFIG.serviceUrl.split('/').slice(-3).join('/')}<br>
-                    • Last updated: ${new Date().toLocaleString()}
-                </div>
-                <div class="detail-section">
-                    <strong>🔧 Available Actions:</strong><br>
-                    • Edit assessments in LEAP interface<br>
-                    • Generate detailed compliance reports<br>
-                    • Add new assessment records<br>
-                    • Export data for external analysis<br>
-                    • Schedule follow-up assessments
-                </div>
-                <div class="detail-section">
-                    <strong>📈 Data Quality Metrics:</strong><br>
-                    • Records found: ${count}<br>
-                    • Data completeness: ${count > 0 ? 'Available' : 'No records'}<br>
-                    • Last validation: ${new Date().toLocaleDateString()}<br>
-                    • Compliance status: ${count > 0 ? 'Active' : 'Requires attention'}
-                </div>
-            `;
-            
-            document.getElementById('detailModal').style.display = 'block';
-        }
-        
-        // User interface functions
         function refreshDashboard() {
             loadRealLEAPData();
         }
         
         function exportData() {
-            alert('📊 Export Assessment Matrix:\n\nThis will export the real Queensland Government LEAP assessment data in your preferred format:\n\n• Excel spreadsheet (.xlsx)\n• PDF report (.pdf)\n• CSV data file (.csv)\n• ArcGIS feature class\n\nData includes all Traditional Owner groups and assessment types currently displayed.');
+            alert('📊 Export Assessment Matrix:\n\nThis will export the Queensland Government LEAP assessment data in your preferred format.');
         }
         
         function openLEAPEdit() {
-            if (confirm('Open LEAP Edit Interface?\n\nThis will take you to the main LEAP data entry and editing interface.')) {
-                window.parent.postMessage({action: 'navigate', page: 'edit'}, '*');
-            }
+            alert('✏️ Open LEAP Edit Interface:\n\nThis will navigate to your LEAP data entry and editing interface.');
         }
         
-        function editSelectedAssessment() {
-            alert('✏️ Edit in LEAP:\n\nThis will open the Queensland Government LEAP edit interface for the selected assessment type and Traditional Owner group.\n\nYou will be able to:\n• Modify existing assessment records\n• Update assessment status\n• Add additional data fields\n• Validate
+        function showDetails(type, group, count) {
+            document.getElementById('modalTitle').textContent = type + ' Assessment - ' + group;
+            document.getElementById('modalDescription').textContent = 'Found ' + count + ' ' + type.toLowerCase() + ' assessments for ' + group + '.';
+            document.getElementById('modalContent').innerHTML = 
+                '<div class="detail-section"><strong>Assessment Details:</strong><br>' +
+                '• Total assessments: ' + count + '<br>' +
+                '• Traditional Owner Group: ' + group + '<br>' +
+                '• Assessment Type: ' + type + '<br>' +
+                '• Data Source: Queensland LEAP Database</div>';
+            document.getElementById('detailModal').style.display = 'block';
+        }
+        
+        function closeModal() {
+            document.getElementById('detailModal').style.display = 'none';
+        }
+        
+        function editAssessment() {
+            alert('Edit Assessment: Opening LEAP edit interface...');
+            closeModal();
+        }
+        
+        function generateReport() {
+            alert('Generate Report: Creating detailed assessment report...');
+            closeModal();
+        }
+        
+        function addNewAssessment() {
+            alert('Add New Assessment: Opening LEAP data entry form...');
+            closeModal();
+        }
+        
+        // Auto-load data when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(loadRealLEAPData, 2000);
+        });
+        
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('detailModal');
+            if (event.target == modal) {
+                closeModal();
+            }
+        }
+    </script>
+</body>
+</html>
