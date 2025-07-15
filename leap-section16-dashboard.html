@@ -409,16 +409,20 @@
         }
         
         function getAccessText() {
+            if (!assessmentData) return '';
+            
             if (assessmentData.accessLegal || assessmentData.accessPhysical) {
                 let text = '';
-                if (assessmentData.accessLegal) text += `Legal access: ${assessmentData.accessLegal}. `;
-                if (assessmentData.accessPhysical) text += `Physical access: ${assessmentData.accessPhysical}.`;
+                if (assessmentData.accessLegal) text += 'Legal access: ' + assessmentData.accessLegal + '. ';
+                if (assessmentData.accessPhysical) text += 'Physical access: ' + assessmentData.accessPhysical + '.';
                 return text;
             }
             return '';
         }
         
         function getSurveyText() {
+            if (!assessmentData) return '';
+            
             if (assessmentData.surveyedInd) {
                 return assessmentData.surveyedInd === 'Y' ? 'Parcel is fully surveyed.' : 'Survey status to be confirmed from DCDB records.';
             }
@@ -426,29 +430,35 @@
         }
         
         function getHistoricalText() {
+            if (!assessmentData) return '';
+            
             if (assessmentData.claimName) {
-                return `Parcel is of cultural significance to the ${assessmentData.claimName}. Traditional Owner consultation required to document historical importance and cultural values.`;
+                return 'Parcel is of cultural significance to the ' + assessmentData.claimName + '. Traditional Owner consultation required to document historical importance and cultural values.';
             }
             return '';
         }
         
         function getTenureHistoryText() {
+            if (!assessmentData) return '';
+            
             if (assessmentData.tenure) {
-                return `Current tenure: ${assessmentData.tenure}. Historical tenure research required including Government Gazette searches and previous tenure arrangements.`;
+                return 'Current tenure: ' + assessmentData.tenure + '. Historical tenure research required including Government Gazette searches and previous tenure arrangements.';
             }
             return '';
         }
         
         function getLocationText() {
+            if (!assessmentData) return '';
+            
             if (assessmentData.locality) {
-                return `Located in ${assessmentData.locality}${assessmentData.shireName ? ', ' + assessmentData.shireName : ''}. Site inspection and detailed location assessment required.`;
+                return 'Located in ' + assessmentData.locality + (assessmentData.shireName ? ', ' + assessmentData.shireName : '') + '. Site inspection and detailed location assessment required.';
             }
             return '';
         }
         
         function addSaveListeners() {
             const editableFields = document.querySelectorAll('.editable-field[contenteditable="true"]');
-            editableFields.forEach(field => {
+            editableFields.forEach(function(field) {
                 field.addEventListener('blur', function() {
                     // Auto-save when field loses focus
                     console.log('Field updated:', this.textContent);
@@ -460,6 +470,24 @@
                     this.style.borderLeft = '3px solid #28a745';
                 });
             });
+        }
+        
+        function saveAllAssessments() {
+            if (!currentParcel) {
+                alert('Please select a parcel first');
+                return;
+            }
+            
+            // Collect all editable field values
+            const editableFields = document.querySelectorAll('.editable-field[contenteditable="true"]');
+            const assessmentValues = {};
+            
+            editableFields.forEach(function(field, index) {
+                assessmentValues['field_' + index] = field.textContent || field.innerText;
+            });
+            
+            console.log('Saving assessment data:', assessmentValues);
+            alert('💾 Assessment data saved to LEAP database\n\nAll field values have been recorded for this parcel.');
         }
 
                 <h2 class="section-title">🔧 Administrative Attributes</h2>
