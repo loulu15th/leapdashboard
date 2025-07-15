@@ -1,0 +1,161 @@
+<script>
+let currentParcel = null;
+let assessmentData = {};
+
+require([
+    "esri/Map",
+    "esri/views/MapView", 
+    "esri/layers/FeatureLayer",
+    "esri/identity/IdentityManager"
+], function(Map, MapView, FeatureLayer, esriId) {
+
+    const LEAP_SERVICE = 'https://uat-qportal.information.qld.gov.au/arcgis/rest/services/sirrte_idi_LEAP_ClaimParcels_vegtest/MapServer/1';
+
+    esriId.getCredential(LEAP_SERVICE).then(function(credential) {
+        initializeDashboard(credential.token);
+    }).catch(function(error) {
+        initializeDashboard(null);
+    });
+
+    function initializeDashboard(token) {
+        const map = new Map({
+            basemap: "satellite"
+        });
+
+        const view = new MapView({
+            container: "mapView",
+            map: map,
+            center: [152.7, -27.3],
+            zoom: 8
+        });
+
+        const claimParcelsLayer = new FeatureLayer({
+            url: LEAP_SERVICE,
+            outFields: ["*"],
+            customParameters: token ? { token: token } : {},
+            popupTemplate: {
+                title: "LEAP Claim Parcel",
+                content: function(feature) {
+                    const attrs = feature.graphic.attributes;
+                    return `
+                        <strong>Lot/Plan:</strong> ${attrs.LOTPLAN || 'Unknown'}<br>
+                        <strong>Traditional Owner:</strong> ${attrs.CLAIM_N || 'Unknown'}<br>
+                        <strong>Locality:</strong> ${attrs.LOCALITY || 'Unknown'}<br>
+                        <strong>Area:</strong> ${attrs.LOT_AREA ? (attrs.LOT_AREA / 10000).toFixed(2) + ' hectares' : 'Unknown'}<br>
+                        <strong>Access:</strong> ${attrs.ACCESS_DESC || 'Assessment required'}
+                    `;
+                }
+            }
+        });
+
+        map.add(claimParcelsLayer);
+
+        view.on("click", function(event) {
+            view.hitTest(event).then(function(response) {
+                if (response.results.length > 0) {
+                    const feature = response.results[0].graphic;
+                    selectParcel(feature.attributes);
+                }
+            });
+        });
+    }
+
+    window.selectParcel = function(attributes) {
+        const lotplan = attributes.LOTPLAN || 'Unknown';
+        const claimName = attributes.CLAIM_N || 'Unknown';
+        const locality = attributes.LOCALITY || 'Unknown';
+        const area = attributes.LOT_AREA || 0;
+        const areaHa = area ? (area / 10000).toFixed(2) : 'Unknown';
+        const tenure = attributes.TENURE || 'Unknown';
+        const access = attributes.ACCESS_DESC || 'Assessment required';
+        const interests = attributes.REGISTERED_INTERESTS || 'To be confirmed';
+        const valuation = attributes.VALUATION_STATUS || 'To be confirmed';
+        const survey = attributes.SURVEY_DESC || 'To be confirmed';
+        const elvas = attributes.ELVAS_NOTES || 'To be checked';
+        const heritage = attributes.HERITAGE_REGISTER || 'To be confirmed';
+        const cultural = attributes.CULTURAL_SIGNIFICANCE || `Oral history of the ${claimName}`;
+        const planning = attributes.LOCAL_PLANNING || `Consult local government in ${locality}`;
+
+        currentParcel = attributes;
+
+        assessmentData = {
+            lotplan,
+            claimName,
+            locality,
+            area,
+            areaHa,
+            tenure,
+            access,
+            interests,
+            valuation,
+            survey,
+            elvas,
+            heritage,
+            cultural,
+            planning,
+            attributes
+        };
+
+        document.getElementById('parcelSummary').innerHTML = `
+            <h3>📍 Selected: ${lotplan}</h3>
+            <p><strong>Traditional Owner:</strong> ${claimName}</p>
+            <p><strong>Area:</strong> ${areaHa} hectares | <strong>Locality:</strong> ${locality}</p>
+        `;
+
+        loadAssessmentSections();
+    };
+});
+
+function loadAssessmentSections() {
+    const currentDate = new Date().toLocaleDateString('en-AU');
+
+    const content = `
+        <h2 class="section-title">📋 Parcel Details</h2>
+        <div class="assessment-section">
+            <table class="assessment-table">
+                <tr><th>Lot/Plan:</th><td><div class="editable-field" contenteditable="true">${assessmentData.lotplan}</div></td></tr>
+                <tr><th>Title Reference:</th><td><div class="editable-field" contenteditable="true">Title reference to be confirmed via QVAS</div></td></tr>
+                <tr><th>Property Address:</th><td><div class="editable-field" contenteditable="true">${assessmentData.locality}, QLD</div></td></tr>
+                <tr><th>Area:</th><td><div class="editable-field" contenteditable="true">${assessmentData.areaHa} Ha</div></td></tr>
+                <tr><th>Tenure:</th><td><div class="editable-field" contenteditable="true">${assessmentData.tenure}</div></td></tr>
+                <tr><th>Registered Trustee:</th><td><div class="editable-field" contenteditable="true">The State of Queensland</div></td></tr>
+                <tr><th>Local Government Area:</th><td><div class="editable-field" contenteditable="true">${assessmentData.locality}</div></td></tr>
+            </table>
+        </div>
+
+        <h2 class="section-title">🔧 Administrative Attributes</h2>
+        <div class="assessment-section">
+            <table class="assessment-table">
+                <tr><th>Access:</th><td><div class="editable-field editable-area" contenteditable="true">${assessmentData.access}</div></td></tr>
+                <tr><th>Survey Requirements:</th><td><div class="editable-field" contenteditable="true">${assessmentData.survey}</div></td></tr>
+                <tr><th>Registered Interests:</th><td><div class="editable-field" contenteditable="true">${assessmentData.interests}</div></td></tr>
+                <tr><th>Current Valuation:</th><td><div class="editable-field" contenteditable="true">${assessmentData.valuation}</div></td></tr>
+                <tr><th>eLVAS & File Check:</th><td><div class="editable-field editable-area" contenteditable="true">${assessmentData.elvas}</div></td></tr>
+            </table>
+        </div>
+
+        <h2 class="section-title">📚 Site History & Background</h2>
+        <div class="assessment-section">
+            <table class="assessment-table">
+                <tr><th>Historical Importance:</th><td><div class="editable-field editable-area" contenteditable="true">${assessmentData.cultural}</div></td></tr>
+            </table>
+        </div>
+
+        <h2 class="section-title">🏘️ Planning Scheme</h2>
+        <div class="assessment-section">
+            <table class="assessment-table">
+                <tr><th>Local Planning:</th><td><div class="editable-field editable-area" contenteditable="true">${assessmentData.planning}</div></td></tr>
+            </table>
+        </div>
+
+        <h2 class="section-title">🏛️ Social & Cultural Attributes</h2>
+        <div class="assessment-section">
+            <table class="assessment-table">
+                <tr><th>Queensland Heritage Register:</th><td><div class="editable-field" contenteditable="true">${assessmentData.heritage}</div></td></tr>
+            </table>
+        </div>
+    `;
+
+    document.getElementById('assessmentContent').innerHTML = content;
+}
+</script>
