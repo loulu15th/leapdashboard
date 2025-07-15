@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>LEAP Dashboard</title>
+    <style>
+        body { font-family: Arial; margin: 10px; background: #f5f5f5; }
+        .header { background: #003087; color: white; padding: 20px; text-align: center; border-radius: 8px; margin-bottom: 20px; }
+        .debug-panel { background: #fff3e0; border-left: 4px solid #ff9800; padding: 15px; margin-bottom: 20px; border-radius: 4px; }
+        .btn { background: #003087; color: white; padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; margin: 5px; }
+        .btn:hover { background: #0066cc; }
+        .btn.test { background: #28a745; }
+        .details-panel { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🏛️ LEAP Evidence Dashboard</h1>
+        <p>Queensland Government - Land Evaluation Assessment Portal</p>
+    </div>
+    
+    <div class="debug-panel">
+        <strong>🔍 Map5 Integration Status:</strong> <span id="debugStatus">Ready</span><br>
+        <strong>Last Message:</strong> <span id="debugMessage">None</span><br>
+        <strong>Message Count:</strong> <span id="messageCount">0</span>
+    </div>
+    
+    <div class="details-panel">
+        <h3>Search & Test</h3>
+        <input type="text" id="searchInput" placeholder="Enter lot/plan" style="padding: 10px; margin: 10px;">
+        <button class="btn" onclick="searchParcel()">Search</button>
+        <button class="btn test" onclick="testConnection()">Test Connection</button>
+        
+        <div id="results" style="margin-top: 20px;">
+            <h4>Results will appear here</h4>
+            <p>Click parcels on Map5 or use search function.</p>
+        </div>
+    </div>
+    
+    <script>
+        let messageCount = 0;
+        
+        function updateDebug(status, message) {
+            document.getElementById('debugStatus').textContent = status;
+            document.getElementById('debugMessage').textContent = message;
+            document.getElementById('messageCount').textContent = ++messageCount;
+            console.log('DEBUG:', status, message);
+        }
+        
+        function testConnection() {
+            updateDebug('Testing...', 'Sending test message');
+            if (window.parent) {
+                window.parent.postMessage({
+                    type: 'TEST_FROM_DASHBOARD',
+                    timestamp: new Date().toISOString()
+                }, '*');
+            }
+        }
+        
+        function searchParcel() {
+            const searchTerm = document.getElementById('searchInput').value;
+            if (!searchTerm) {
+                alert('Please enter a lot/plan number');
+                return;
+            }
+            
+            updateDebug('Searching...', 'Looking for ' + searchTerm);
+            document.getElementById('results').innerHTML = '<h4>Searching for: ' + searchTerm + '</h4><p>Check Map5 widget for results.</p>';
+            
+            if (window.parent) {
+                window.parent.postMessage({
+                    type: 'SEARCH_PARCEL',
+                    lotplan: searchTerm
+                }, '*');
+            }
+        }
+        
+        // Listen for messages from Map5
+        window.addEventListener('message', function(event) {
+            console.log('Message received:', event.data);
+            
+            if (event.data && event.data.records) {
+                updateDebug('Data Received', event.data.records.length + ' records');
+                
+                let html = '<h4>Parcel Data Received</h4>';
+                event.data.records.forEach((record, index) => {
+                    const attrs = record.attributes || record;
+                    html += '<p><strong>Parcel ' + (index + 1) + ':</strong> ' + 
+                           (attrs.lotplan || 'Unknown') + ' - ' + 
+                           (attrs.claim_n || 'Unknown') + '</p>';
+                });
+                
+                document.getElementById('results').innerHTML = html;
+            } else {
+                updateDebug('Message Received', 'Unknown format');
+            }
+        });
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            updateDebug('Ready', 'Dashboard loaded successfully');
+        });
+    </script>
+</body>
+</html>
