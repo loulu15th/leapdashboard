@@ -4,8 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LEAP Evidence Dashboard</title>
-    <link rel="stylesheet" href="https://js.arcgis.com/4.28/esri/themes/light/main.css">
-    <script src="https://js.arcgis.com/4.28/"></script>
     <style>
         body { font-family: Arial; margin: 0; background: #f5f5f5; padding: 10px; }
         .header { background: linear-gradient(135deg, #003087, #0066cc); color: white; padding: 20px; text-align: center; border-radius: 8px; margin-bottom: 20px; }
@@ -31,7 +29,7 @@
         .search-btn:hover { background: #0066cc; }
         
         /* Main Content Layout */
-        .main-content { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; margin-bottom: 20px; overflow: hidden; }
+        .main-content { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; margin-bottom: 20px; }
         
         /* Evidence Matrix */
         .evidence-container { background: white; border-radius: 8px; padding: 25px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
@@ -48,15 +46,17 @@
         .low-evidence { background: linear-gradient(135deg, #f8d7da, #f5c6cb); border-left: 4px solid #dc3545; }
         .no-evidence { background: linear-gradient(135deg, #f8f9fa, #e9ecef); border-left: 4px solid #6c757d; }
         
-        /* Map and Details Panel */
-        .map-details-panel { background: white; border-radius: 8px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); overflow: hidden; max-height: 600px; }
-        .map-container { width: 100%; height: 300px; border-radius: 8px; margin-bottom: 20px; border: 2px solid #003087; overflow: hidden; position: relative; }
+        /* Details Panel */
+        .map-details-panel { background: white; border-radius: 8px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         .details-panel { background: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid #003087; }
         .details-title { color: #003087; font-size: 1.1em; margin-bottom: 10px; font-weight: bold; }
         .details-content { font-size: 0.9em; line-height: 1.6; }
         .details-item { margin-bottom: 8px; }
         .details-label { font-weight: bold; color: #666; }
         .details-value { color: #333; }
+        
+        /* Debug panel */
+        .debug-panel { background: #fff3e0; border-left: 4px solid #ff9800; padding: 15px; margin-bottom: 20px; border-radius: 4px; font-size: 0.9em; }
         
         /* Status indicators */
         .status { margin-left: 15px; font-weight: bold; color: #666; }
@@ -65,14 +65,6 @@
         .close { position: absolute; right: 15px; top: 15px; font-size: 24px; cursor: pointer; color: #999; }
         .close:hover { color: #000; }
         .detail-section { background: #f8f9fa; padding: 15px; border-radius: 6px; margin: 15px 0; border-left: 4px solid #003087; }
-        
-        /* Map popup styles */
-        .map-popup-content { padding: 10px; }
-        .popup-title { color: #003087; font-weight: bold; margin-bottom: 10px; }
-        .popup-details { font-size: 0.9em; }
-        .popup-actions { margin-top: 15px; text-align: center; }
-        .popup-btn { background: #003087; color: white; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; margin: 2px; font-size: 12px; }
-        .popup-btn:hover { background: #0066cc; }
     </style>
 </head>
 <body>
@@ -84,6 +76,13 @@
     <div class="connection-info">
         <strong>✅ Connected to Queensland Government LEAP Database</strong><br>
         Real-time data from 24,788 Claim Parcels via authenticated Experience Builder session.
+    </div>
+    
+    <!-- Debug Panel -->
+    <div class="debug-panel" id="debugPanel">
+        <strong>🔍 Map5 Integration Status:</strong> <span id="debugStatus">Waiting for Map5 data...</span><br>
+        <strong>Last Message:</strong> <span id="debugMessage">None</span><br>
+        <strong>Message Count:</strong> <span id="messageCount">0</span>
     </div>
     
     <div class="stats">
@@ -110,6 +109,7 @@
         <input type="text" id="lotplanSearch" class="search-input" placeholder="Enter lot/plan (e.g., 27USL210, 3AP1558)" />
         <button class="search-btn" onclick="searchLotPlan()">Search</button>
         <button class="search-btn" onclick="clearSearch()" style="background: #6c757d;">Clear</button>
+        <button class="search-btn" onclick="testConnection()" style="background: #28a745;">Test Connection</button>
     </div>
     
     <div class="main-content">
@@ -202,17 +202,20 @@
             </table>
         </div>
         
-        <!-- Map and Details Panel -->
+        <!-- Details Panel -->
         <div class="map-details-panel">
-            <h3 class="section-title">📍 LEAP Parcel Locator</h3>
-            <div id="mapView" class="map-container"></div>
+            <h3 class="section-title">📍 Selected Parcel Details</h3>
             
             <div class="details-panel">
-                <div class="details-title" id="detailsTitle">Select a parcel to view details</div>
+                <div class="details-title" id="detailsTitle">Click a parcel on Map5 to view details</div>
                 <div class="details-content" id="detailsContent">
                     <div class="details-item">
                         <span class="details-label">Map Integration:</span> 
-                        <span class="details-value">Click parcels on Map5 widget above to view details here, or use the search function.</span>
+                        <span class="details-value">Click parcels on Map5 widget above to view details here.</span>
+                    </div>
+                    <div class="details-item">
+                        <span class="details-label">Search Function:</span> 
+                        <span class="details-value">Use search box above to find specific lot/plan numbers.</span>
                     </div>
                     <div class="details-item">
                         <span class="details-label">Real-time Data:</span> 
@@ -250,292 +253,116 @@
     
     <script>
         // Global variables
-        let map, featureLayer, currentSelectedParcel;
         let leapData = [];
+        let messageCounter = 0;
         
-        // Initialize ArcGIS Map
-        require([
-            "esri/Map",
-            "esri/views/MapView",
-            "esri/layers/FeatureLayer",
-            "esri/widgets/Search",
-            "esri/widgets/Locate",
-            "esri/geometry/Extent"
-        ], function(Map, MapView, FeatureLayer, Search, Locate, Extent) {
-            
-            // Create map
-            map = new Map({
-                basemap: "satellite"
-            });
-            
-            // Create map view
-            const view = new MapView({
-                container: "mapView",
-                map: map,
-                center: [152.7, -27.3], // Queensland center
-                zoom: 8
-            });
-            
-            // Add LEAP Claim Parcels layer
-            featureLayer = new FeatureLayer({
-                url: "https://uat-qportal.information.qld.gov.au/arcgis/rest/services/sirrte_idi_LEAP_ClaimParcels_vegtest/MapServer/1",
-                outFields: ["*"],
-                popupTemplate: {
-                    title: "LEAP Claim Parcel",
-                    content: createPopupContent
-                }
-            });
-            
-            map.add(featureLayer);
-            
-            // Add search widget
-            const searchWidget = new Search({
-                view: view,
-                sources: [{
-                    layer: featureLayer,
-                    searchFields: ["lotplan", "claim_n"],
-                    displayField: "lotplan",
-                    exactMatch: false,
-                    outFields: ["*"],
-                    name: "LEAP Parcels",
-                    placeholder: "Search lot/plan or claim name"
-                }]
-            });
-            
-            view.ui.add(searchWidget, {
-                position: "top-left",
-                index: 0
-            });
-            
-            // Add locate widget
-            const locateWidget = new Locate({
-                view: view
-            });
-            view.ui.add(locateWidget, "top-left");
-            
-            // Handle feature selection
-            view.on("click", function(event) {
-                view.hitTest(event).then(function(response) {
-                    if (response.results.length > 0) {
-                        const feature = response.results[0].graphic;
-                        selectParcel(feature);
-                    }
-                });
-            });
-            
-            // Store view globally for search function
-            window.mapView = view;
-            window.featureLayer = featureLayer;
-        });
-        
-        function createPopupContent(feature) {
-            const attrs = feature.graphic.attributes;
-            return `
-                <div class="map-popup-content">
-                    <div class="popup-title">Lot/Plan: ${attrs.lotplan || 'Unknown'}</div>
-                    <div class="popup-details">
-                        <strong>Traditional Owner:</strong> ${attrs.claim_n || 'Unknown'}<br>
-                        <strong>Object ID:</strong> ${attrs.OBJECTID || 'N/A'}<br>
-                        <strong>Area:</strong> ${attrs.lot_area ? attrs.lot_area.toLocaleString() + ' sq m' : 'Unknown'}<br>
-                        <strong>Locality:</strong> ${attrs.locality || 'Unknown'}
-                    </div>
-                    <div class="popup-actions">
-                        <button class="popup-btn" onclick="viewParcelDetails('${attrs.OBJECTID}')">View Details</button>
-                        <button class="popup-btn" onclick="openLEAPEdit('${attrs.OBJECTID}')">Edit in LEAP</button>
-                    </div>
-                </div>
-            `;
+        // Debug functions
+        function updateDebugInfo(status, message) {
+            document.getElementById('debugStatus').textContent = status;
+            document.getElementById('debugMessage').textContent = message;
+            document.getElementById('messageCount').textContent = ++messageCounter;
+            console.log('DEBUG:', status, message);
         }
         
-        function selectParcel(feature) {
-            currentSelectedParcel = feature;
-            const attrs = feature.attributes;
+        function testConnection() {
+            updateDebugInfo('Testing...', 'Sending test message to Experience Builder');
             
-            // Update details panel
-            document.getElementById('detailsTitle').textContent = `Parcel: ${attrs.lotplan || 'Unknown'}`;
-            document.getElementById('detailsContent').innerHTML = `
-                <div class="details-item">
-                    <span class="details-label">Traditional Owner:</span> 
-                    <span class="details-value">${attrs.claim_n || 'Unknown'}</span>
-                </div>
-                <div class="details-item">
-                    <span class="details-label">Object ID:</span> 
-                    <span class="details-value">${attrs.OBJECTID || 'N/A'}</span>
-                </div>
-                <div class="details-item">
-                    <span class="details-label">Area:</span> 
-                    <span class="details-value">${attrs.lot_area ? attrs.lot_area.toLocaleString() + ' sq m' : 'Unknown'}</span>
-                </div>
-                <div class="details-item">
-                    <span class="details-label">Locality:</span> 
-                    <span class="details-value">${attrs.locality || 'Unknown'}</span>
-                </div>
-                <div class="details-item">
-                    <span class="details-label">Status:</span> 
-                    <span class="details-value">Active Assessment Area</span>
-                </div>
-                <div style="margin-top: 15px; text-align: center;">
-                    <button class="btn" onclick="viewParcelDetails('${attrs.OBJECTID}')" style="font-size: 12px; padding: 8px 16px;">View Full Details</button>
-                </div>
-            `;
-        }
-        
-        function searchLotPlan() {
-            const searchTerm = document.getElementById('lotplanSearch').value.trim();
-            if (!searchTerm) {
-                alert('Please enter a lot/plan number to search');
-                return;
-            }
-            
-            // Send message to Experience Builder Map5 widget
             if (window.parent) {
                 window.parent.postMessage({
-                    type: 'searchParcel',
-                    lotplan: searchTerm,
-                    target: 'map5'
+                    type: 'TEST_MESSAGE',
+                    source: 'leap_dashboard',
+                    timestamp: new Date().toISOString()
                 }, '*');
             }
             
-            // Also update the details panel
-            updateDetailsPanel(searchTerm);
-            
-            // Try local map search if available
-            if (window.featureLayer) {
-                const query = window.featureLayer.createQuery();
-                query.where = `lotplan LIKE '%${searchTerm}%'`;
-                query.outFields = ["*"];
-                query.returnGeometry = true;
-                
-                window.featureLayer.queryFeatures(query).then(function(results) {
-                    if (results.features.length > 0) {
-                        const feature = results.features[0];
-                        
-                        // Zoom to feature
-                        if (window.mapView) {
-                            window.mapView.goTo(feature.geometry);
-                        }
-                        
-                        // Select feature
-                        selectParcel(feature);
-                        
-                    } else {
-                        console.log(`No parcels found matching "${searchTerm}"`);
-                    }
-                }).catch(function(error) {
-                    console.log('Local search not available, using Map5 integration');
-                });
-            }
-        }
-
-        function updateDetailsPanel(searchTerm) {
-            document.getElementById('detailsTitle').textContent = `Searching for: ${searchTerm}`;
-            document.getElementById('detailsContent').innerHTML = `
-                <div class="details-item">
-                    <span class="details-label">Search Query:</span> 
-                    <span class="details-value">${searchTerm}</span>
-                </div>
-                <div class="details-item">
-                    <span class="details-label">Status:</span> 
-                    <span class="details-value">Locating parcel on Map5 widget...</span>
-                </div>
-                <div class="details-item">
-                    <span class="details-label">Tip:</span> 
-                    <span class="details-value">Check Map5 widget above for search results</span>
-                </div>
-            `;
+            setTimeout(() => {
+                updateDebugInfo('Test Complete', 'Check if Map5 received the message');
+            }, 1000);
         }
         
-        function clearSearch() {
-            document.getElementById('lotplanSearch').value = '';
-            document.getElementById('detailsTitle').textContent = 'Select a parcel to view details';
-            document.getElementById('detailsContent').innerHTML = `
-                <div class="details-item">
-                    <span class="details-label">Map Integration:</span> 
-                    <span class="details-value">Click parcels on Map5 widget above to view details here, or use the search function.</span>
-                </div>
-                <div class="details-item">
-                    <span class="details-label">Real-time Data:</span> 
-                    <span class="details-value">Connected to Queensland Government LEAP database with 24,788 claim parcels.</span>
-                </div>
-            `;
-            if (window.mapView) {
-                window.mapView.popup.close();
-            }
-        }
-        
-        // *** ENHANCED MESSAGE LISTENER FOR MAP5 INTEGRATION ***
+        // MAIN MESSAGE LISTENER - Enhanced for debugging
         window.addEventListener('message', function(event) {
+            const timestamp = new Date().toLocaleTimeString();
+            console.log(`[${timestamp}] Message received:`, event.data);
+            
             if (event.data) {
-                // Handle Table widget data (all records)
-                if (event.data.records && event.data.records.length > 100) {
-                    console.log('Received full LEAP dataset:', event.data.records.length, 'records');
-                    leapData = event.data.records;
-                    processRealLEAPData(event.data.records);
+                let messageType = 'Unknown';
+                let recordCount = 0;
+                
+                // Identify message type and count records
+                if (event.data.records) {
+                    recordCount = event.data.records.length;
+                    if (recordCount > 100) {
+                        messageType = 'Table Widget (Full Dataset)';
+                        processTableData(event.data.records);
+                    } else if (recordCount <= 50) {
+                        messageType = 'Map5 (Filtered Records)';
+                        processMap5Data(event.data.records);
+                    }
+                } else if (event.data.features) {
+                    recordCount = event.data.features.length;
+                    messageType = 'Map5 (Features)';
+                    processMap5Features(event.data.features);
+                } else if (event.data.type) {
+                    messageType = `Custom (${event.data.type})`;
+                    processCustomMessage(event.data);
                 }
                 
-                // Handle filtered data from Map5 (selected parcels)
-                else if (event.data.records && event.data.records.length <= 50) {
-                    console.log('Received filtered data from Map5:', event.data.records.length, 'selected parcels');
-                    displayFilteredParcels(event.data.records);
-                }
-                
-                // Handle single feature selection
-                else if (event.data.features) {
-                    console.log('Single feature selected in Map5');
-                    displaySelectedParcel(event.data.features[0]);
-                }
-                
-                // Handle simple parcel data from Map5
-                else if (event.data.type === 'parcelSelected' || event.data.lotplan) {
-                    console.log('Parcel data received from Map5:', event.data);
-                    displayMap5Selection(event.data);
-                }
+                updateDebugInfo(
+                    `${messageType} received`, 
+                    `${recordCount} records at ${timestamp}`
+                );
             }
-        });
+    </script>
+</body>
+</html>
         
-        // *** NEW FUNCTIONS FOR MAP5 INTEGRATION ***
-        function displayFilteredParcels(records) {
+        // Process Table widget data (full dataset)
+        function processTableData(records) {
+            console.log('Processing Table widget data:', records.length, 'records');
+            leapData = records;
+            
+            // Extract unique Traditional Owner groups
+            const uniqueGroups = new Set();
+            records.forEach(record => {
+                const attrs = record.attributes || record;
+                if (attrs.claim_n && attrs.claim_n.trim()) {
+                    uniqueGroups.add(attrs.claim_n.trim());
+                }
+            });
+            
+            const groups = Array.from(uniqueGroups).slice(0, 5);
+            updateTableHeaders(groups);
+            updateStatistics(records.length, groups.length);
+        }
+        
+        // Process Map5 filtered data (selected parcels)
+        function processMap5Data(records) {
+            console.log('Processing Map5 filtered data:', records.length, 'selected parcels');
+            
             if (records.length === 1) {
-                // Single parcel selected
                 displaySelectedParcel(records[0]);
             } else if (records.length > 1) {
-                // Multiple parcels selected
-                document.getElementById('detailsTitle').textContent = `Selected: ${records.length} Parcels`;
-                
-                // Group by Traditional Owner
-                const groupCounts = {};
-                records.forEach(record => {
-                    const attrs = record.attributes || record;
-                    const group = attrs.claim_n || 'Unknown';
-                    groupCounts[group] = (groupCounts[group] || 0) + 1;
-                });
-                
-                let contentHTML = `
-                    <div class="details-item">
-                        <span class="details-label">Total Selected:</span> 
-                        <span class="details-value">${records.length} parcels</span>
-                    </div>
-                `;
-                
-                for (const [group, count] of Object.entries(groupCounts)) {
-                    contentHTML += `
-                        <div class="details-item">
-                            <span class="details-label">${group}:</span> 
-                            <span class="details-value">${count} parcels</span>
-                        </div>
-                    `;
-                }
-                
-                contentHTML += `
-                    <div style="margin-top: 15px; text-align: center;">
-                        <button class="btn" onclick="analyzeSelectedParcels()" style="font-size: 12px; padding: 8px 16px;">Analyze Selection</button>
-                    </div>
-                `;
-                
-                document.getElementById('detailsContent').innerHTML = contentHTML;
+                displayMultipleParcels(records);
             }
         }
-
+        
+        // Process Map5 features
+        function processMap5Features(features) {
+            console.log('Processing Map5 features:', features.length, 'features');
+            
+            if (features.length > 0) {
+                displaySelectedParcel(features[0]);
+            }
+        }
+        
+        // Process custom messages
+        function processCustomMessage(data) {
+            console.log('Processing custom message:', data);
+            updateDebugInfo('Custom Message', `Type: ${data.type}`);
+        }
+        
+        // Display single selected parcel
         function displaySelectedParcel(record) {
             const attrs = record.attributes || record;
             
@@ -555,4 +382,230 @@
                 </div>
                 <div class="details-item">
                     <span class="details-label">Area:</span> 
-                    <span class="details-value">${attrs.lot_area ? attrs.lot
+                    <span class="details-value">${attrs.lot_area ? attrs.lot_area.toLocaleString() + ' sq m' : 'Unknown'}</span>
+                </div>
+                <div class="details-item">
+                    <span class="details-label">Locality:</span> 
+                    <span class="details-value">${attrs.locality || 'Unknown'}</span>
+                </div>
+                <div class="details-item">
+                    <span class="details-label">Last Updated:</span> 
+                    <span class="details-value">${new Date().toLocaleString()}</span>
+                </div>
+                <div style="margin-top: 15px; text-align: center;">
+                    <button class="btn" onclick="viewParcelDetails('${attrs.OBJECTID}')" style="font-size: 12px; padding: 8px 16px;">View Full Details</button>
+                </div>
+            `;
+            
+            updateDebugInfo('Parcel Displayed', `${attrs.lotplan || 'Unknown'} selected`);
+        }
+        
+        // Display multiple selected parcels
+        function displayMultipleParcels(records) {
+            document.getElementById('detailsTitle').textContent = `Selected: ${records.length} Parcels`;
+            
+            // Group by Traditional Owner
+            const groupCounts = {};
+            records.forEach(record => {
+                const attrs = record.attributes || record;
+                const group = attrs.claim_n || 'Unknown';
+                groupCounts[group] = (groupCounts[group] || 0) + 1;
+            });
+            
+            let contentHTML = `
+                <div class="details-item">
+                    <span class="details-label">Total Selected:</span> 
+                    <span class="details-value">${records.length} parcels</span>
+                </div>
+            `;
+            
+            for (const [group, count] of Object.entries(groupCounts)) {
+                contentHTML += `
+                    <div class="details-item">
+                        <span class="details-label">${group}:</span> 
+                        <span class="details-value">${count} parcels</span>
+                    </div>
+                `;
+            }
+            
+            contentHTML += `
+                <div style="margin-top: 15px; text-align: center;">
+                    <button class="btn" onclick="analyzeSelectedParcels()" style="font-size: 12px; padding: 8px 16px;">Analyze Selection</button>
+                </div>
+            `;
+            
+            document.getElementById('detailsContent').innerHTML = contentHTML;
+        }
+        
+        // Search function
+        function searchLotPlan() {
+            const searchTerm = document.getElementById('lotplanSearch').value.trim();
+            if (!searchTerm) {
+                alert('Please enter a lot/plan number to search');
+                return;
+            }
+            
+            updateDebugInfo('Searching...', `Looking for ${searchTerm}`);
+            
+            // Send search message to Map5
+            if (window.parent) {
+                window.parent.postMessage({
+                    type: 'SEARCH_PARCEL',
+                    lotplan: searchTerm,
+                    source: 'leap_dashboard'
+                }, '*');
+            }
+            
+            // Update details panel
+            document.getElementById('detailsTitle').textContent = `Searching: ${searchTerm}`;
+            document.getElementById('detailsContent').innerHTML = `
+                <div class="details-item">
+                    <span class="details-label">Search Query:</span> 
+                    <span class="details-value">${searchTerm}</span>
+                </div>
+                <div class="details-item">
+                    <span class="details-label">Status:</span> 
+                    <span class="details-value">Searching in Map5 widget...</span>
+                </div>
+                <div class="details-item">
+                    <span class="details-label">Tip:</span> 
+                    <span class="details-value">Check Map5 widget above for search results</span>
+                </div>
+            `;
+        }
+        
+        function clearSearch() {
+            document.getElementById('lotplanSearch').value = '';
+            document.getElementById('detailsTitle').textContent = 'Click a parcel on Map5 to view details';
+            document.getElementById('detailsContent').innerHTML = `
+                <div class="details-item">
+                    <span class="details-label">Map Integration:</span> 
+                    <span class="details-value">Click parcels on Map5 widget above to view details here.</span>
+                </div>
+                <div class="details-item">
+                    <span class="details-label">Search Function:</span> 
+                    <span class="details-value">Use search box above to find specific lot/plan numbers.</span>
+                </div>
+                <div class="details-item">
+                    <span class="details-label">Real-time Data:</span> 
+                    <span class="details-value">Connected to Queensland Government LEAP database with 24,788 claim parcels.</span>
+                </div>
+            `;
+            updateDebugInfo('Search Cleared', 'Ready for new search');
+        }
+        
+        function updateTableHeaders(groups) {
+            const headers = ['Wakka Wakka People', 'Kabi Kabi', 'Mandandanji People', 'Auburn Hawkwood People', 'Barunggam'];
+            const tableHeaders = document.querySelectorAll('.evidence-table th');
+            
+            for (let i = 1; i < tableHeaders.length && i <= groups.length; i++) {
+                tableHeaders[i].textContent = groups[i-1] || headers[i-1];
+            }
+        }
+        
+        function updateStatistics(totalRecords, groupCount) {
+            document.getElementById('totalParcels').textContent = totalRecords.toLocaleString();
+            document.getElementById('activeGroups').textContent = groupCount;
+            document.getElementById('lastUpdated').textContent = new Date().toLocaleString();
+        }
+        
+        function showDetailedAssessment(type, group, count) {
+            document.getElementById('modalTitle').textContent = `${type} Assessment - ${group}`;
+            document.getElementById('modalDescription').textContent = 
+                `Found ${count.toLocaleString()} ${type.toLowerCase()} assessments for ${group} in the Queensland Government LEAP database.`;
+            
+            document.getElementById('modalContent').innerHTML = `
+                <div class="detail-section">
+                    <strong>📊 Queensland Government LEAP Data:</strong><br>
+                    • Assessment count: ${count.toLocaleString()}<br>
+                    • Traditional Owner Group: ${group}<br>
+                    • Assessment Type: ${type}<br>
+                    • Data Source: Queensland LEAP Database<br>
+                    • Service: uat-qportal.information.qld.gov.au<br>
+                    • Connection: Authenticated Experience Builder session<br>
+                    • Last updated: ${new Date().toLocaleString()}
+                </div>
+                <div class="detail-section">
+                    <strong>🔧 Available Actions:</strong><br>
+                    • Edit assessments in LEAP interface<br>
+                    • Generate detailed compliance reports<br>
+                    • Add new assessment records<br>
+                    • Export data for external analysis<br>
+                    • Schedule follow-up assessments<br>
+                    • View spatial distribution on map<br>
+                    • Create Traditional Owner consultation reports
+                </div>
+            `;
+            
+            document.getElementById('detailModal').style.display = 'block';
+        }
+        
+        function viewParcelDetails(objectId) {
+            showDetailedAssessment('Comprehensive', 'Selected Parcel', 1);
+        }
+        
+        function analyzeSelectedParcels() {
+            alert('📊 Analyzing Selected Parcels:\\n\\nGenerating assessment summary for selected area...\\n\\n• Vegetation analysis\\n• Environmental conditions\\n• Land use assessment\\n• Traditional Owner consultation requirements');
+        }
+        
+        function refreshData() {
+            updateDebugInfo('Refreshing...', 'Requesting latest data');
+            alert('🔄 Refreshing LEAP Data:\\n\\nRequesting latest assessment data from Queensland Government LEAP database via Experience Builder.');
+        }
+        
+        function exportData() {
+            alert('📊 Export Assessment Matrix:\\n\\nExporting Queensland Government LEAP assessment data in your preferred format.');
+        }
+        
+        function openLEAPEdit() {
+            alert('✏️ Opening LEAP Edit Interface...');
+        }
+        
+        function generateReport() {
+            alert('📄 Generate Reports: Creating comprehensive assessment reports for Traditional Owner groups.');
+        }
+        
+        function editAssessment() {
+            alert('Edit Assessment: Opening LEAP edit interface for selected assessment...');
+            closeModal();
+        }
+        
+        function generateDetailedReport() {
+            alert('Generate Detailed Report: Creating comprehensive assessment report with maps and analysis...');
+            closeModal();
+        }
+        
+        function addNewAssessment() {
+            alert('Add New Assessment: Opening LEAP data entry form for new assessment record...');
+            closeModal();
+        }
+        
+        function viewOnMap() {
+            closeModal();
+            alert('View on Map: Check Map5 widget above for spatial view...');
+        }
+        
+        function closeModal() {
+            document.getElementById('detailModal').style.display = 'none';
+        }
+        
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('detailModal');
+            if (event.target == modal) {
+                closeModal();
+            }
+        }
+        
+        // Handle Enter key in search
+        document.getElementById('lotplanSearch').addEventListener('keypress', function(event) {
+            if (event.key === 'Enter') {
+                searchLotPlan();
+            }
+        });
+        
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            updateDebugInfo('Dashboard Ready', 'Waiting for Map5 interaction');
+            console.log('LEAP Evidence Dashboard initialized and ready for Map5 integration');
+        });
