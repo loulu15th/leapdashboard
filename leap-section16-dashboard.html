@@ -203,16 +203,19 @@
         });
         
         function loadAssessmentSections() {
+            // Get current date for defaults
+            const currentDate = new Date().toLocaleDateString('en-AU');
+            
             const content = `
                 <h2 class="section-title">📋 Parcel Details</h2>
                 <div class="assessment-section">
                     <table class="assessment-table">
                         <tr><th>Lot/Plan:</th><td><div class="editable-field" contenteditable="true">${assessmentData.lotplan}</div></td></tr>
-                        <tr><th>Title Reference:</th><td><div class="editable-field" contenteditable="true" placeholder="Enter title reference"></div></td></tr>
-                        <tr><th>Property Address:</th><td><div class="editable-field" contenteditable="true" placeholder="Enter property address"></div></td></tr>
+                        <tr><th>Title Reference:</th><td><div class="editable-field" contenteditable="true">Title reference to be confirmed via QVAS</div></td></tr>
+                        <tr><th>Property Address:</th><td><div class="editable-field" contenteditable="true">${assessmentData.locality}, QLD</div></td></tr>
                         <tr><th>Area:</th><td><div class="editable-field" contenteditable="true">${assessmentData.areaHa} Ha</div></td></tr>
                         <tr><th>Tenure:</th><td><div class="editable-field" contenteditable="true">${assessmentData.tenure}</div></td></tr>
-                        <tr><th>Registered Trustee:</th><td><div class="editable-field" contenteditable="true" placeholder="Enter registered trustee"></div></td></tr>
+                        <tr><th>Registered Trustee:</th><td><div class="editable-field" contenteditable="true">The State of Queensland</div></td></tr>
                         <tr><th>Local Government Area:</th><td><div class="editable-field" contenteditable="true">${assessmentData.locality}</div></td></tr>
                     </table>
                 </div>
@@ -220,24 +223,24 @@
                 <h2 class="section-title">🔧 Administrative Attributes</h2>
                 <div class="assessment-section">
                     <table class="assessment-table">
-                        <tr><th>Access:</th><td><div class="editable-field editable-area" contenteditable="true" placeholder="Describe legal and practical access"></div></td></tr>
-                        <tr><th>Survey Requirements:</th><td><div class="editable-field" contenteditable="true" placeholder="Survey status"></div></td></tr>
-                        <tr><th>Registered Interests:</th><td><div class="editable-field" contenteditable="true" placeholder="Any registered interests"></div></td></tr>
+                        <tr><th>Access:</th><td><div class="editable-field editable-area" contenteditable="true">Assessment required: Check for legal road access and practical access via existing roads or tracks.</div></td></tr>
+                        <tr><th>Survey Requirements:</th><td><div class="editable-field" contenteditable="true">Survey status to be confirmed from DCDB records</div></td></tr>
+                        <tr><th>Registered Interests:</th><td><div class="editable-field" contenteditable="true">Title search required to identify any registered interests or encumbrances</div></td></tr>
                         <tr><th>Current Valuation:</th><td>
-                            <div class="editable-field" contenteditable="true" placeholder="QVAS valuation"></div>
+                            <div class="editable-field" contenteditable="true">QVAS valuation to be obtained for current market value assessment</div>
                             <div class="link-section">
                                 <a href="https://qvas.information.qld.gov.au/" target="_blank" class="external-link">🔗 QVAS Portal</a>
                             </div>
                         </td></tr>
-                        <tr><th>eLVAS & File Check:</th><td><div class="editable-field editable-area" contenteditable="true" placeholder="eLVAS case details"></div></td></tr>
+                        <tr><th>eLVAS & File Check:</th><td><div class="editable-field editable-area" contenteditable="true">eLVAS case search required. Check for any existing applications, permits, or disposal history for this parcel.</div></td></tr>
                     </table>
                 </div>
 
                 <h2 class="section-title">📚 Site History & Background</h2>
                 <div class="assessment-section">
                     <table class="assessment-table">
-                        <tr><th>Historical Importance:</th><td><div class="editable-field editable-area" contenteditable="true" placeholder="Describe historical significance to Traditional Owners"></div></td></tr>
-                        <tr><th>Previous Tenure:</th><td><div class="editable-field editable-area" contenteditable="true" placeholder="Previous tenure arrangements and changes"></div></td></tr>
+                        <tr><th>Historical Importance:</th><td><div class="editable-field editable-area" contenteditable="true">The parcel is of cultural significance to the ${assessmentData.claimName}. Historical research and Traditional Owner consultation required to document cultural importance and any significant sites or events.</div></td></tr>
+                        <tr><th>Previous Tenure:</th><td><div class="editable-field editable-area" contenteditable="true">Current tenure: ${assessmentData.tenure}. Historical tenure research required including previous dedications, leases, permits, and any changes in tenure arrangements over time.</div></td></tr>
                     </table>
                 </div>
 
@@ -248,63 +251,63 @@
                         <tr><th>Current Use / Encroachments:</th><td><div class="editable-field editable-area" contenteditable="true" placeholder="Current land use and any encroachments"></div></td></tr>
                         <tr><th>Surrounding Land Uses:</th><td><div class="editable-field editable-area" contenteditable="true" placeholder="Describe surrounding land uses and tenure"></div></td></tr>
                         <tr><th>Contaminated Land:</th><td>
-                            <div class="editable-field" contenteditable="true" placeholder="CLR/EMR register results"></div>
+                            <div class="editable-field" contenteditable="true">Search required: CLR and EMR registers to be checked for any contamination history or environmental management requirements.</div>
                             <div class="link-section">
                                 <a href="https://apps.des.qld.gov.au/contaminated-land-register/" target="_blank" class="external-link">🔗 CLR Register</a>
                                 <a href="https://apps.des.qld.gov.au/environmental-management-register/" target="_blank" class="external-link">🔗 EMR Register</a>
                             </div>
                         </td></tr>
                         <tr><th>Stock Routes:</th><td>
-                            <div class="editable-field" contenteditable="true" placeholder="Stock route assessment"></div>
+                            <div class="editable-field" contenteditable="true">Stock route assessment: Check QLD Globe for any stock routes within 1km vicinity of the parcel.</div>
                             <div class="link-section">
                                 <a href="https://qldglobe.information.qld.gov.au/" target="_blank" class="external-link">🔗 QLD Globe</a>
                             </div>
                         </td></tr>
                         <tr><th>State Planning Policy:</th><td>
-                            <div class="editable-field editable-area" contenteditable="true" placeholder="SPP considerations"></div>
+                            <div class="editable-field editable-area" contenteditable="true">SPP assessment required for: Agricultural land classification, Biodiversity (MSES), Natural hazards (flood/bushfire), Coastal management (if applicable).</div>
                             <div class="link-section">
                                 <a href="https://spp.dsdip.esriaustraliaonline.com.au/geoviewer/map/planmaking" target="_blank" class="external-link">🔗 SPP Mapping</a>
                             </div>
                         </td></tr>
                         <tr><th>Regional Plan:</th><td>
-                            <div class="editable-field editable-area" contenteditable="true" placeholder="Regional plan considerations"></div>
+                            <div class="editable-field editable-area" contenteditable="true">Regional plan considerations: Check applicable regional plan for agricultural areas, biodiversity corridors, and priority development areas.</div>
                             <div class="link-section">
                                 <a href="https://sara.dsdip.esriaustraliaonline.com.au/saraviewer/" target="_blank" class="external-link">🔗 SARA Viewer</a>
                             </div>
                         </td></tr>
                         <tr><th>Vegetation:</th><td>
-                            <div class="editable-field editable-area" contenteditable="true" placeholder="Vegetation categories and regional ecosystems"></div>
+                            <div class="editable-field editable-area" contenteditable="true">Vegetation mapping assessment required: Regional ecosystem categories, vegetation management categories (A, B, R, X), and any endangered or of concern regional ecosystems.</div>
                             <div class="link-section">
                                 <a href="https://www.qld.gov.au/environment/plants-animals/plants/ecosystems/descriptions" target="_blank" class="external-link">🔗 Regional Ecosystems</a>
                                 <a href="https://qldglobe.information.qld.gov.au/" target="_blank" class="external-link">🔗 QLD Globe</a>
                             </div>
                         </td></tr>
                         <tr><th>Flooding / Water:</th><td>
-                            <div class="editable-field editable-area" contenteditable="true" placeholder="Flood hazard and water features"></div>
+                            <div class="editable-field editable-area" contenteditable="true">Flood hazard assessment: Check flood mapping overlays and identify any watercourses, wetlands, or drainage features on the parcel.</div>
                             <div class="link-section">
                                 <a href="https://qldglobe.information.qld.gov.au/" target="_blank" class="external-link">🔗 QLD Globe</a>
                             </div>
                         </td></tr>
                         <tr><th>Bushfire:</th><td>
-                            <div class="editable-field" contenteditable="true" placeholder="Bushfire hazard assessment"></div>
+                            <div class="editable-field" contenteditable="true">Bushfire hazard assessment: Check bushfire prone area mapping and hazard categories.</div>
                             <div class="link-section">
                                 <a href="https://qldglobe.information.qld.gov.au/" target="_blank" class="external-link">🔗 Bushfire Hazard</a>
                             </div>
                         </td></tr>
                         <tr><th>Environment / Conservation:</th><td>
-                            <div class="editable-field editable-area" contenteditable="true" placeholder="MSES and conservation values"></div>
+                            <div class="editable-field editable-area" contenteditable="true">MSES assessment: Check for Matters of State Environmental Significance including protected areas, wildlife habitat, wetlands, and endangered ecosystems.</div>
                             <div class="link-section">
                                 <a href="https://apps.des.qld.gov.au/mses-mapping/" target="_blank" class="external-link">🔗 MSES Mapping</a>
                             </div>
                         </td></tr>
                         <tr><th>Mining & Exploration:</th><td>
-                            <div class="editable-field editable-area" contenteditable="true" placeholder="Mining permits and exploration"></div>
+                            <div class="editable-field editable-area" contenteditable="true">Mining interests assessment: Check GeoResGlobe for current and historical mining leases, exploration permits, and petroleum authorities over the parcel.</div>
                             <div class="link-section">
                                 <a href="https://georesglobe.information.qld.gov.au/" target="_blank" class="external-link">🔗 GeoResGlobe</a>
                             </div>
                         </td></tr>
                         <tr><th>Unexploded Ordinance:</th><td>
-                            <div class="editable-field" contenteditable="true" placeholder="UXO assessment"></div>
+                            <div class="editable-field" contenteditable="true">UXO assessment: Check Defence UXO mapping for any unexploded ordinance risk areas.</div>
                             <div class="link-section">
                                 <a href="https://www.defence.gov.au/capabilities/explosive-ordnance/maps" target="_blank" class="external-link">🔗 UXO Map</a>
                             </div>
@@ -316,18 +319,18 @@
                 <div class="assessment-section">
                     <table class="assessment-table">
                         <tr><th>Indigenous Cultural Heritage:</th><td>
-                            <div class="editable-field editable-area" contenteditable="true" placeholder="Cultural heritage database search results"></div>
+                            <div class="editable-field editable-area" contenteditable="true">Cultural heritage database search required for ${assessmentData.claimName}. Search DATSIP Indigenous Cultural Heritage Database for any recorded sites, objects, or areas of cultural significance.</div>
                             <div class="link-section">
                                 <a href="https://culturalheritage.datsip.qld.gov.au/achris/public/" target="_blank" class="external-link">🔗 Cultural Heritage DB</a>
                             </div>
                         </td></tr>
                         <tr><th>Queensland Heritage Register:</th><td>
-                            <div class="editable-field" contenteditable="true" placeholder="Heritage register search results"></div>
+                            <div class="editable-field" contenteditable="true">Heritage register search: Check Queensland Heritage Register for any listed places or archaeological sites.</div>
                             <div class="link-section">
                                 <a href="https://apps.des.qld.gov.au/heritage-register/" target="_blank" class="external-link">🔗 Heritage Register</a>
                             </div>
                         </td></tr>
-                        <tr><th>Cultural Heritage Management Plan:</th><td><div class="editable-field" contenteditable="true" placeholder="CHMP status"></div></td></tr>
+                        <tr><th>Cultural Heritage Management Plan:</th><td><div class="editable-field" contenteditable="true">CHMP assessment: Check if parcel is covered by an approved Cultural Heritage Management Plan.</div></td></tr>
                     </table>
                 </div>
 
@@ -335,7 +338,7 @@
                 <div class="assessment-section">
                     <table class="assessment-table">
                         <tr><th>Native Title Status:</th><td>
-                            <div class="editable-field editable-area" contenteditable="true" placeholder="QNTime search results and determinations"></div>
+                            <div class="editable-field editable-area" contenteditable="true">Native title assessment required for ${assessmentData.claimName}. Check QNTime and NNTT databases for: Current determinations, Active applications, Registered ILUAs, Section 47B classification.</div>
                             <div class="link-section">
                                 <a href="http://www.nntt.gov.au/searchRegApps/" target="_blank" class="external-link">🔗 NNTT Register</a>
                             </div>
@@ -346,14 +349,14 @@
                 <h2 class="section-title">🏘️ Planning Scheme</h2>
                 <div class="assessment-section">
                     <table class="assessment-table">
-                        <tr><th>Local Planning:</th><td><div class="editable-field editable-area" contenteditable="true" placeholder="Local government planning scheme details"></div></td></tr>
+                        <tr><th>Local Planning:</th><td><div class="editable-field editable-area" contenteditable="true">Local government consultation required for ${assessmentData.locality}. Check: Current zoning, Planning scheme provisions, Infrastructure requirements, Development constraints, Local government views on disposal.</div></td></tr>
                     </table>
                 </div>
 
                 <h2 class="section-title">🤝 Consultation</h2>
                 <div class="assessment-section">
                     <table class="assessment-table">
-                        <tr><th>Stakeholder Consultation:</th><td><div class="editable-field editable-area" contenteditable="true" placeholder="Consultation outcomes and requirements"></div></td></tr>
+                        <tr><th>Stakeholder Consultation:</th><td><div class="editable-field editable-area" contenteditable="true">Consultation program required with: ${assessmentData.claimName} (Traditional Owners), ${assessmentData.locality} Council, DETSI, Sunwater (if applicable), Queensland Police Service (if relevant), Other identified stakeholders. Document all views and responses.</div></td></tr>
                     </table>
                 </div>
             `;
