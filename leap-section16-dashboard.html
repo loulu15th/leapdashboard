@@ -31,7 +31,9 @@
         /* Editable Fields */
         .editable-field { border: 1px solid #ccc; padding: 5px; border-radius: 4px; min-height: 20px; background: white; }
         .editable-field:focus { border-color: #003087; outline: none; background: #f0f8ff; }
+        .editable-field:empty:before { content: attr(data-placeholder); color: #999; font-style: italic; }
         .editable-area { min-height: 60px; resize: vertical; width: 100%; font-family: Arial; }
+        .readonly-field { background: #f8f9fa; border: 1px solid #e9ecef; color: #666; cursor: not-allowed; }
         
         /* External Links */
         .external-link { display: inline-block; background: #28a745; color: white; padding: 4px 8px; text-decoration: none; border-radius: 4px; font-size: 0.85em; margin: 2px; }
@@ -172,29 +174,49 @@
             window.selectParcel = function(attributes) {
                 currentParcel = attributes;
                 
-                // Map field names
-                const lotplan = attributes.LOTPLAN || attributes.lotplan || 'Unknown';
-                const claimName = attributes.CLAIM_N || attributes.claim_n || 'Unknown';
-                const locality = attributes.LOCALITY || attributes.locality || 'Unknown';
+                // Map field names from your LEAP database structure
+                const lotplan = attributes.LOTPLAN || attributes.lotplan || '';
+                const lot = attributes.LOT || attributes.lot || '';
+                const plan = attributes.PLAN || attributes.plan || '';
+                const claimName = attributes.CLAIM_N || attributes.claim_n || '';
+                const locality = attributes.LOCALITY || attributes.locality || '';
+                const shireName = attributes.SHIRE_NAME || attributes.shire_name || '';
                 const area = attributes.LOT_AREA || attributes.lot_area || 0;
-                const areaHa = area ? (area / 10000).toFixed(2) : 'Unknown';
-                const tenure = attributes.TENURE || attributes.tenure || 'Unknown';
+                const areaHa = area ? (area / 10000).toFixed(2) : '';
+                const tenure = attributes.TENURE || attributes.tenure || '';
+                const parcelType = attributes.PARCEL_TYP || attributes.parcel_typ || '';
+                const coverType = attributes.COVER_TYP || attributes.cover_typ || '';
+                const regOwner = attributes.REG_OWNER || attributes.reg_owner || '';
+                const surveyedInd = attributes.SURV_IND || attributes.surv_ind || '';
+                const accessLegal = attributes.ACCESS_L || attributes.access_l || '';
+                const accessPhysical = attributes.ACCESS_P || attributes.access_p || '';
+                const objectId = attributes.OBJECTID || attributes.objectid || '';
                 
                 // Update parcel summary
                 document.getElementById('parcelSummary').innerHTML = `
-                    <h3>📍 Selected: ${lotplan}</h3>
-                    <p><strong>Traditional Owner:</strong> ${claimName}</p>
-                    <p><strong>Area:</strong> ${areaHa} hectares | <strong>Locality:</strong> ${locality}</p>
+                    <h3>📍 Selected: ${lotplan || 'Unknown Parcel'}</h3>
+                    <p><strong>Traditional Owner:</strong> ${claimName || 'Unknown'}</p>
+                    <p><strong>Area:</strong> ${areaHa ? areaHa + ' hectares' : 'Unknown'} | <strong>Locality:</strong> ${locality || 'Unknown'}</p>
                 `;
                 
-                // Store assessment data
+                // Store assessment data with all mapped fields
                 assessmentData = {
                     lotplan: lotplan,
+                    lot: lot,
+                    plan: plan,
                     claimName: claimName,
                     locality: locality,
+                    shireName: shireName,
                     area: area,
                     areaHa: areaHa,
                     tenure: tenure,
+                    parcelType: parcelType,
+                    coverType: coverType,
+                    regOwner: regOwner,
+                    surveyedInd: surveyedInd,
+                    accessLegal: accessLegal,
+                    accessPhysical: accessPhysical,
+                    objectId: objectId,
                     attributes: attributes
                 };
                 
@@ -203,22 +225,113 @@
         });
         
         function loadAssessmentSections() {
-            // Get current date for defaults
-            const currentDate = new Date().toLocaleDateString('en-AU');
-            
             const content = `
                 <h2 class="section-title">📋 Parcel Details</h2>
                 <div class="assessment-section">
                     <table class="assessment-table">
-                        <tr><th>Lot/Plan:</th><td><div class="editable-field" contenteditable="true">${assessmentData.lotplan}</div></td></tr>
-                        <tr><th>Title Reference:</th><td><div class="editable-field" contenteditable="true">Title reference to be confirmed via QVAS</div></td></tr>
-                        <tr><th>Property Address:</th><td><div class="editable-field" contenteditable="true">${assessmentData.locality}, QLD</div></td></tr>
-                        <tr><th>Area:</th><td><div class="editable-field" contenteditable="true">${assessmentData.areaHa} Ha</div></td></tr>
-                        <tr><th>Tenure:</th><td><div class="editable-field" contenteditable="true">${assessmentData.tenure}</div></td></tr>
-                        <tr><th>Registered Trustee:</th><td><div class="editable-field" contenteditable="true">The State of Queensland</div></td></tr>
-                        <tr><th>Local Government Area:</th><td><div class="editable-field" contenteditable="true">${assessmentData.locality}</div></td></tr>
+                        <tr><th>Lot/Plan:</th><td><div class="editable-field readonly-field">${assessmentData.lotplan || 'Unknown'}</div></td></tr>
+                        <tr><th>Title Reference:</th><td><div class="editable-field" contenteditable="true" data-placeholder="Search QVAS for title reference number">${assessmentData.regOwner ? 'Available in QVAS' : ''}</div></td></tr>
+                        <tr><th>Property Address:</th><td><div class="editable-field" contenteditable="true" data-placeholder="Enter full street address if available">${assessmentData.locality ? assessmentData.locality + ', QLD' : ''}</div></td></tr>
+                        <tr><th>Area:</th><td><div class="editable-field readonly-field">${assessmentData.areaHa ? assessmentData.areaHa + ' Ha' : 'Area unknown'}</div></td></tr>
+                        <tr><th>Tenure:</th><td><div class="editable-field readonly-field">${assessmentData.tenure || 'Tenure unknown'}</div></td></tr>
+                        <tr><th>Registered Trustee:</th><td><div class="editable-field" contenteditable="true" data-placeholder="Check title for current registered trustee">${assessmentData.regOwner || ''}</div></td></tr>
+                        <tr><th>Local Government Area:</th><td><div class="editable-field readonly-field">${assessmentData.shireName || assessmentData.locality || 'LGA unknown'}</div></td></tr>
                     </table>
                 </div>
+
+                <h2 class="section-title">🔧 Administrative Attributes</h2>
+                <div class="assessment-section">
+                    <table class="assessment-table">
+                        <tr><th>Access:</th><td><div class="editable-field editable-area" contenteditable="true" data-placeholder="Describe legal road access and practical access via existing roads/tracks. Check road reserves and easements.">${getAccessText()}</div></td></tr>
+                        <tr><th>Survey Requirements:</th><td><div class="editable-field" contenteditable="true" data-placeholder="Check DCDB for survey status and boundary definition">${getSurveyText()}</div></td></tr>
+                        <tr><th>Registered Interests:</th><td><div class="editable-field" contenteditable="true" data-placeholder="Search title for easements, covenants, encumbrances, or other interests"></div></td></tr>
+                        <tr><th>Current Valuation:</th><td>
+                            <div class="editable-field" contenteditable="true" data-placeholder="Obtain current QVAS valuation and date of valuation"></div>
+                            <div class="link-section">
+                                <a href="https://qvas.information.qld.gov.au/" target="_blank" class="external-link">🔗 QVAS Portal</a>
+                            </div>
+                        </td></tr>
+                        <tr><th>eLVAS & File Check:</th><td><div class="editable-field editable-area" contenteditable="true" data-placeholder="Search eLVAS for case history, applications, permits, or previous disposal attempts. Include case numbers and outcomes."></div></td></tr>
+                    </table>
+                </div>
+
+                <h2 class="section-title">📚 Site History & Background</h2>
+                <div class="assessment-section">
+                    <table class="assessment-table">
+                        <tr><th>Historical Importance:</th><td><div class="editable-field editable-area" contenteditable="true" data-placeholder="Document cultural significance to ${assessmentData.claimName || 'Traditional Owners'}. Include consultation outcomes and oral history.">${getHistoricalText()}</div></td></tr>
+                        <tr><th>Previous Tenure:</th><td><div class="editable-field editable-area" contenteditable="true" data-placeholder="Research tenure history including dedications, leases, permits, and cancellations with dates.">${getTenureHistoryText()}</div></td></tr>
+                    </table>
+                </div>
+
+                <h2 class="section-title">🌍 Physical, Biological & Economic Attributes</h2>
+                <div class="assessment-section">
+                    <table class="assessment-table">
+                        <tr><th>Property Location:</th><td><div class="editable-field editable-area" contenteditable="true" data-placeholder="Describe location, distances to towns/facilities, road frontage, and access points.">${getLocationText()}</div></td></tr>
+                        <tr><th>Current Use / Encroachments:</th><td><div class="editable-field editable-area" contenteditable="true" data-placeholder="Document current land use, any unauthorized use, encroachments, or improvements on the parcel."></div></td></tr>
+                        <tr><th>Surrounding Land Uses:</th><td><div class="editable-field editable-area" contenteditable="true" data-placeholder="Describe neighboring properties, land uses, tenure types, and any significant infrastructure."></div></td></tr>
+                    </table>
+                </div>
+            `;
+            
+            document.getElementById('assessmentContent').innerHTML = content;
+            
+            // Add save functionality to editable fields
+            addSaveListeners();
+        }
+        
+        function getAccessText() {
+            if (assessmentData.accessLegal || assessmentData.accessPhysical) {
+                let text = '';
+                if (assessmentData.accessLegal) text += `Legal access: ${assessmentData.accessLegal}. `;
+                if (assessmentData.accessPhysical) text += `Physical access: ${assessmentData.accessPhysical}.`;
+                return text;
+            }
+            return '';
+        }
+        
+        function getSurveyText() {
+            if (assessmentData.surveyedInd) {
+                return assessmentData.surveyedInd === 'Y' ? 'Parcel is fully surveyed.' : 'Survey status to be confirmed from DCDB records.';
+            }
+            return '';
+        }
+        
+        function getHistoricalText() {
+            if (assessmentData.claimName) {
+                return `Parcel is of cultural significance to the ${assessmentData.claimName}. Traditional Owner consultation required to document historical importance and cultural values.`;
+            }
+            return '';
+        }
+        
+        function getTenureHistoryText() {
+            if (assessmentData.tenure) {
+                return `Current tenure: ${assessmentData.tenure}. Historical tenure research required including Government Gazette searches and previous tenure arrangements.`;
+            }
+            return '';
+        }
+        
+        function getLocationText() {
+            if (assessmentData.locality) {
+                return `Located in ${assessmentData.locality}${assessmentData.shireName ? ', ' + assessmentData.shireName : ''}. Site inspection and detailed location assessment required.`;
+            }
+            return '';
+        }
+        
+        function addSaveListeners() {
+            const editableFields = document.querySelectorAll('.editable-field[contenteditable="true"]');
+            editableFields.forEach(field => {
+                field.addEventListener('blur', function() {
+                    // Auto-save when field loses focus
+                    console.log('Field updated:', this.textContent);
+                    // Here you would save to LEAP database
+                });
+                
+                field.addEventListener('input', function() {
+                    // Mark as modified
+                    this.style.borderLeft = '3px solid #28a745';
+                });
+            });
+        }
 
                 <h2 class="section-title">🔧 Administrative Attributes</h2>
                 <div class="assessment-section">
