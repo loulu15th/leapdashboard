@@ -86,14 +86,34 @@
                 map.add(claimParcelsLayer);
                 
                 // Handle feature selection
-                view.on("click", function(event) {
-                    view.hitTest(event).then(function(response) {
-                        if (response.results.length > 0) {
-                            const feature = response.results[0].graphic;
-                            showParcelDetails(feature.attributes);
-                        }
+                // In the view.on("click") section, replace the showParcelDetails call:
+                    view.on("click", function(event) {
+                        view.hitTest(event).then(function(response) {
+                            if (response.results.length > 0) {
+                                const feature = response.results[0].graphic;
+                                const attrs = feature.attributes;
+                                
+                                // Update details panel with correct field names
+                                document.getElementById('parcelDetails').innerHTML = `
+                                    <h3>📍 Selected Parcel</h3>
+                                    <div style="background: white; padding: 15px; border-radius: 6px; border-left: 4px solid #28a745;">
+                                        <p><strong>🏷️ Lot/Plan:</strong> ${attrs.lotplan || 'Unknown'}</p>
+                                        <p><strong>🏛️ Traditional Owner:</strong> ${attrs.claim_n || 'Unknown'}</p>
+                                        <p><strong>🆔 Object ID:</strong> ${attrs.OBJECTID || 'N/A'}</p>
+                                        <p><strong>📏 Area:</strong> ${attrs.lot_area ? attrs.lot_area.toLocaleString() + ' sq m' : 'Unknown'}</p>
+                                        <p><strong>📍 Locality:</strong> ${attrs.locality || 'Unknown'}</p>
+                                        <p><strong>⏰ Selected:</strong> ${new Date().toLocaleString()}</p>
+                                    </div>
+                                    <div style="margin-top: 15px; text-align: center;">
+                                        <button onclick="generateReport('${attrs.lotplan}')" 
+                                                style="background: #003087; color: white; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer;">
+                                            📄 Generate Assessment Report
+                                        </button>
+                                    </div>
+                                `;
+                            }
+                        });
                     });
-                });
             }
             
             function showParcelDetails(attributes) {
