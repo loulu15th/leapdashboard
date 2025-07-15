@@ -97,14 +97,29 @@
             }
             
             function showParcelDetails(attributes) {
+                console.log('Parcel attributes:', attributes); // Debug line
+                
                 document.getElementById('parcelDetails').innerHTML = `
                     <h3>📍 Selected Parcel</h3>
-                    <p><strong>Lot/Plan:</strong> ${attributes.lotplan || 'Unknown'}</p>
-                    <p><strong>Traditional Owner:</strong> ${attributes.claim_n || 'Unknown'}</p>
-                    <p><strong>Object ID:</strong> ${attributes.OBJECTID || 'N/A'}</p>
-                    <p><strong>Area:</strong> ${attributes.lot_area || 'Unknown'}</p>
-                    <p><strong>Locality:</strong> ${attributes.locality || 'Unknown'}</p>
+                    <div style="background: white; padding: 15px; border-radius: 6px; border-left: 4px solid #28a745;">
+                        <p><strong>🏷️ Lot/Plan:</strong> ${attributes.lotplan || attributes.LOTPLAN || 'Unknown'}</p>
+                        <p><strong>🏛️ Traditional Owner:</strong> ${attributes.claim_n || attributes.CLAIM_N || 'Unknown'}</p>
+                        <p><strong>🆔 Object ID:</strong> ${attributes.OBJECTID || attributes.objectid || 'N/A'}</p>
+                        <p><strong>📏 Area:</strong> ${attributes.lot_area || attributes.LOT_AREA || 'Unknown'}</p>
+                        <p><strong>📍 Locality:</strong> ${attributes.locality || attributes.LOCALITY || 'Unknown'}</p>
+                        <p><strong>⏰ Selected:</strong> ${new Date().toLocaleString()}</p>
+                    </div>
+                    <div style="margin-top: 15px; text-align: center;">
+                        <button onclick="generateReport('${attributes.lotplan || attributes.LOTPLAN}')" 
+                                style="background: #003087; color: white; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer;">
+                            📄 Generate Assessment Report
+                        </button>
+                    </div>
                 `;
+            }
+            
+            function generateReport(lotplan) {
+                alert('Generating detailed assessment report for ' + lotplan + '\\n\\n• Vegetation analysis\\n• Environmental conditions\\n• Land use assessment\\n• Traditional Owner consultation requirements');
             }
         });
     </script>
