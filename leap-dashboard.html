@@ -333,55 +333,55 @@
             console.log('Traditional Owner Groups found:', traditionalOwnerGroups);
         }
         
-        function processAssessmentsByGroup(features) {
-            // Initialize assessment matrix
-            assessmentMatrix = {
-                vegetation: {},
-                environmental: {},
-                landUse: {}
-            };
+        function extractTraditionalOwnerGroups(features) {
+            const uniqueGroups = new Set();
+            const sampleFeature = features[0];
+            const attributes = sampleFeature.attributes || sampleFeature;
             
-            // Initialize counts for each group
-            traditionalOwnerGroups.forEach(group => {
-                assessmentMatrix.vegetation[group] = 0;
-                assessmentMatrix.environmental[group] = 0;
-                assessmentMatrix.landUse[group] = 0;
-            });
+            // Your specific field name first, then fallbacks
+            const possibleGroupFields = [
+                'claim_n',           // Queensland Government LEAP field
+                'CLAIM_N',           // Uppercase version
+                'CLAIM_NAME',
+                'TRADITIONAL_OWNER', 
+                'CLAIM_GROUP', 
+                'OWNER_GROUP'
+            ];
             
-            // Count assessments by group and type
-            features.forEach(feature => {
-                const attrs = feature.attributes || feature;
-                
-                // Find the group for this feature
-                let featureGroup = null;
-                for (const group of traditionalOwnerGroups) {
-                    if (Object.values(attrs).some(value => 
-                        typeof value === 'string' && value.includes(group))) {
-                        featureGroup = group;
+            let groupField = 'claim_n'; // Default to your field
+            
+            // Verify the field exists in your data
+            if (!attributes.hasOwnProperty('claim_n') && !attributes.hasOwnProperty('CLAIM_N')) {
+                // If claim_n doesn't exist, look for alternatives
+                for (const fieldName of possibleGroupFields) {
+                    if (attributes.hasOwnProperty(fieldName)) {
+                        groupField = fieldName;
                         break;
                     }
                 }
-                
-                // If no group match found, assign to first group for counting
-                if (!featureGroup && traditionalOwnerGroups.length > 0) {
-                    featureGroup = traditionalOwnerGroups[0];
-                }
-                
-                if (featureGroup) {
-                    // Count different types of assessments based on field presence
-                    if (hasVegetationData(attrs)) {
-                        assessmentMatrix.vegetation[featureGroup]++;
-                    }
-                    if (hasEnvironmentalData(attrs)) {
-                        assessmentMatrix.environmental[featureGroup]++;
-                    }
-                    if (hasLandUseData(attrs)) {
-                        assessmentMatrix.landUse[featureGroup]++;
-                    }
-                }
-            });
+            }
             
-            console.log('Assessment matrix:', assessmentMatrix);
+            console.log('Using Traditional Owner field:', groupField);
+            console.log('Sample value:', attributes[groupField]);
+            
+            // Extract unique groups from claim_n field
+            if (groupField && attributes.hasOwnProperty(groupField)) {
+                features.forEach(feature => {
+                    const attrs = feature.attributes || feature;
+                    const group = attrs[groupField];
+                    if (group && group.trim()) {
+                        uniqueGroups.add(group.trim());
+                    }
+                });
+            }
+            
+            traditionalOwnerGroups = Array.from(uniqueGroups).slice(0, 5);
+            
+            if (traditionalOwnerGroups.length === 0) {
+                traditionalOwnerGroups = ['Group 1', 'Group 2', 'Group 3', 'Group 4', 'Group 5'];
+            }
+            
+            console.log('Traditional Owner Groups from claim_n:', traditionalOwnerGroups);
         }
         
         function hasVegetationData(attributes) {
