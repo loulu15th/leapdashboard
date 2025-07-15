@@ -396,23 +396,23 @@
             updateDetailsPanel(searchTerm);
         }
 
-function updateDetailsPanel(searchTerm) {
-    document.getElementById('detailsTitle').textContent = `Searching for: ${searchTerm}`;
-    document.getElementById('detailsContent').innerHTML = `
-        <div class="details-item">
-            <span class="details-label">Search Query:</span> 
-            <span class="details-value">${searchTerm}</span>
-        </div>
-        <div class="details-item">
-            <span class="details-label">Status:</span> 
-            <span class="details-value">Searching LEAP database...</span>
-        </div>
-        <div class="details-item">
-            <span class="details-label">Tip:</span> 
-            <span class="details-value">Click on the map to view parcel details</span>
-        </div>
-    `;
-}
+        function updateDetailsPanel(searchTerm) {
+            document.getElementById('detailsTitle').textContent = `Searching for: ${searchTerm}`;
+            document.getElementById('detailsContent').innerHTML = `
+                <div class="details-item">
+                    <span class="details-label">Search Query:</span> 
+                    <span class="details-value">${searchTerm}</span>
+                </div>
+                <div class="details-item">
+                    <span class="details-label">Status:</span> 
+                    <span class="details-value">Searching LEAP database...</span>
+                </div>
+                <div class="details-item">
+                    <span class="details-label">Tip:</span> 
+                    <span class="details-value">Click on the map to view parcel details</span>
+                </div>
+            `;
+        }
         
         function clearSearch() {
             document.getElementById('lotplanSearch').value = '';
