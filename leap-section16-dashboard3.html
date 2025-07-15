@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>LEAP Section 16 Dashboard</title>
+  <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+  <link rel="stylesheet" href="https://js.arcgis.com/4.28/esri/themes/light/main.css">
+  <style>
+    body { font-family: Arial; margin: 0; background: #f5f5f5; }
+    #mapView { height: 400px; width: 100%; }
+    .section-title { color: #003087; font-size: 1.2em; margin: 20px 0 10px 0; border-bottom: 2px solid #e9ecef; padding-bottom: 8px; }
+    .assessment-section { background: #f8f9fa; padding: 15px; margin: 10px 20px; border-radius: 8px; border-left: 4px solid #003087; }
+    .assessment-table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+    .assessment-table th, .assessment-table td { padding: 8px; border: 1px solid #ddd; text-align: left; vertical-align: top; }
+    .editable-field { border: 1px solid #ccc; padding: 5px; border-radius: 4px; min-height: 20px; background: white; }
+    .editable-area { min-height: 60px; resize: vertical; width: 100%; font-family: Arial; }
+    #parcelSummary { padding: 20px; }
+    #assessmentContent { padding-bottom: 40px; }
+    .external-link-btn {
+      display: inline-block;
+      background: #0066cc;
+      color: white;
+      padding: 6px 12px;
+      border-radius: 4px;
+      text-decoration: none;
+      font-size: 14px;
+      margin: 10px 20px;
+    }
+    .external-link-btn:hover { background: #004c99; }
+  </style>
+  <script src="https://js.arcgis.com/4.28/"></script>
+</head>
+<body>
+
+  <div id="mapView"></div>
+  <div id="parcelSummary"></div>
+
+  <a href="https://sppims-dams.dsdilgp.qld.gov.au/spp/?tab=layers" target="_blank" class="external-link-btn">
+    🔗 View Regional Planning Map (SPP Viewer)
+  </a>
+
+  <div id="assessmentContent"></div>
+
+  <script>
+    let currentParcel = null;
+    let assessmentData = {};
+
+    require([
+      "esri/Map",
+      "esri/views/MapView",
+      "esri/layers/FeatureLayer",
+      "esri/identity/IdentityManager"
+    ], function(Map, MapView, FeatureLayer, esriId) {
+
+      const LEAP_SERVICE = 'https://uat-qportal.information.qld.gov.au/arcgis/rest/services/sirrte_idi_LEAP_ClaimParcels_vegtest/MapServer/1';
+
+      esriId.getCredential(LEAP_SERVICE).then(function(credential) {
+        initializeDashboard(credential.token);
+      }).catch(function(error) {
+        initializeDashboard(null);
+      });
+
+      function initializeDashboard(token) {
+        const map = new Map({
+          basemap: "satellite"
+        });
+
+        const view = new MapView({
+          container: "mapView",
+          map: map,
+          center: [152.7, -27.3],
+          zoom: 8
+        });
+
+        const claimParcelsLayer = new FeatureLayer({
+          id: "leap-parcels",
+          url: LEAP_SERVICE,
+          outFields: ["*"],
+          customParameters: token ? { token: token } : {},
+          popupTemplate: {
+            title: "LEAP Claim Parcel",
+            content: function(feature) {
+              const attrs = feature.graphic.attributes;
+              return `
+                <strong>Lot/Plan:</strong> ${attrs.lotplan || 'Unknown'}<br>
+                <strong>Traditional Owner:</strong> ${attrs.claim_n || 'Unknown'}<br>
+                <strong>Locality:</strong> ${attrs.locality || 'Unknown'}<br>
+                <strong>Area:</strong> ${attrs.lot_area ? (attrs.lot_area / 10000).toFixed(2) + ' ha' : 'Unknown'}
+              `;
+            }
+          }
+        });
+
+        map.add(claimParcelsLayer);
+
+        view.on("click", function(event) {
+          view.hitTest(event).then(function(response) {
+            const claimFeature = response.results.find(r =>
+              r.graphic.layer?.id === "leap-parcels"
+            );
+
+            if (claimFeature) {
+              selectParcel(claimFeature.graphic.attributes);
+            }
+          });
+        });
+      }
+
+      window.selectParcel = function(attributes) {
+        const get = (val, hint) => val && val !== '0' ? val : `<em style="color:#888;">${hint}</em>`;
+
+        const lotplan = attributes.lotplan || 'Unknown';
+        const claimName = attributes.claim_n || 'Unknown';
+        const locality = attributes.locality || 'Unknown';
+        const area = attributes.lot_area || 0;
+        const areaHa = area ? (area / 10000).toFixed(2) + ' ha' : 'Unknown';
+        const tenure = get(attributes.tenure, 'Check DCDB');
+        const access = get(attributes.access_l, 'Legal and practical access needs confirmation');
+        const valuation = get(attributes.qvas_val, 'Check QVAS valuation portal');
+        const elvas = get(attributes.elvas_ref, 'eLVAS and file check required');
+        const planning = get(attributes.plan_schem, `Consult planning map for ${locality}`);
+        const heritage = get(attributes.qld_cul_he, 'Check QLD Heritage Register');
+        const cultural = get(attributes.ind_cul_he, `Consult Cultural Heritage DB for ${claimName}`);
+
+        currentParcel = attributes;
+
+        assessmentData = {
+          lotplan,
+          claimName,
+          locality,
+          areaHa,
+          tenure,
+          access,
+          valuation,
+          elvas,
+          planning,
+          heritage,
+          cultural
+        };
+
+        document.getElementById('parcelSummary').innerHTML = `
+          <h3>📍 Selected: ${lotplan}</h3>
+          <p><strong>Traditional Owner:</strong> ${claimName}</p>
+          <p><strong>Area:</strong> ${areaHa} | <strong>Locality:</strong> ${locality}</p>
+        `;
+
+        loadAssessmentSections();
+      };
+    });
+
+    function loadAssessmentSections() {
+      const content = `
+        <h2 class="section-title">📋 Parcel Details</h2>
+        <div class="assessment-section">
+          <table class="assessment-table">
+            <tr><th>Lot/Plan:</th><td><div class="editable-field">${assessmentData.lotplan}</div></td></tr>
+            <tr><th>Area:</th><td><div class="editable-field">${assessmentData.areaHa}</div></td></tr>
+            <tr><th>Locality:</th><td><div class="editable-field">${assessmentData.locality}</div></td></tr>
+            <tr><th>Tenure:</th><td><div class="editable-field">${assessmentData.tenure}</div></td></tr>
+          </table>
+        </div>
+
+        <h2 class="section-title">🔧 Administrative Attributes</h2>
+        <div class="assessment-section">
+          <table class="assessment-table">
+            <tr><th>Access:</th><td><div class="editable-field">${assessmentData.access}</div></td></tr>
+            <tr><th>Valuation:</th><td><div class="editable-field">${assessmentData.valuation}</div></td></tr>
+            <tr><th>eLVAS File Check:</th><td><div class="editable-field">${assessmentData.elvas}</div></td></tr>
+          </table>
+        </div>
+
+        <h2 class="section-title">📚 Planning</h2>
+        <div class="assessment-section">
+          <table class="assessment-table">
+            <tr><th>Planning Scheme:</th><td><div class="editable-field">${assessmentData.planning}</div></td></tr>
+          </table>
+        </div>
+
+        <h2 class="section-title">🏛️ Cultural & Heritage</h2>
+        <div class="assessment-section">
+          <table class="assessment-table">
+            <tr><th>Indigenous Cultural Heritage:</th><td><div class="editable-field">${assessmentData.cultural}</div></td></tr>
+            <tr><th>QLD Heritage Register:</th><td><div class="editable-field">${assessmentData.heritage}</div></td></tr>
+          </table>
+        </div>
+      `;
+
+      document.getElementById('assessmentContent').innerHTML = content;
+    }
+  </script>
+</body>
+</html>
