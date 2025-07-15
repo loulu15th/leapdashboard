@@ -278,10 +278,14 @@
             
             // Try common field names for Traditional Owner groups
             const possibleGroupFields = [
-                'TRADITIONAL_OWNER', 'CLAIM_GROUP', 'OWNER_GROUP', 
-                'CLAIMANT_NAME', 'GROUP_NAME', 'CLAIMANT_GROUP',
-                'CLAIM_NAME', 'NATIVE_TITLE_GROUP', 'CLAIMANT',
-                'PEOPLE', 'TRIBE', 'NATION'
+                'claim_n',           // Your specific field - highest priority
+                'CLAIM_N',           // Uppercase version
+                'TRADITIONAL_OWNER', 
+                'CLAIM_GROUP', 
+                'OWNER_GROUP', 
+                'CLAIMANT_NAME', 
+                'GROUP_NAME', 
+                'PEOPLE'
             ];
             
             let groupField = null;
