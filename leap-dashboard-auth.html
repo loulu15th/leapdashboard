@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>LEAP Evidence Dashboard - Authenticated</title>
+    <link rel="stylesheet" href="https://js.arcgis.com/4.28/esri/themes/light/main.css">
+    <style>
+        body { font-family: Arial; margin: 0; background: #f5f5f5; }
+        .header { background: linear-gradient(135deg, #003087, #0066cc); color: white; padding: 20px; text-align: center; }
+        .login-panel { text-align: center; padding: 50px; }
+        .dashboard { display: none; padding: 20px; }
+        .map-container { height: 400px; width: 100%; margin: 20px 0; }
+        .details-panel { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🏛️ LEAP Evidence Dashboard</h1>
+        <p>Queensland Government - Authenticated Access</p>
+    </div>
+    
+    <div id="loginPanel" class="login-panel">
+        <h3>Authentication Required</h3>
+        <p>Please sign in to access LEAP claim parcel data</p>
+        <button id="signInBtn" onclick="signIn()">Sign In with ArcGIS</button>
+    </div>
+    
+    <div id="dashboard" class="dashboard">
+        <div id="mapView" class="map-container"></div>
+        <div id="parcelDetails" class="details-panel">
+            <h3>Selected Parcel Details</h3>
+            <p>Click a parcel on the map to view details</p>
+        </div>
+    </div>
+
+    <script src="https://js.arcgis.com/4.28/"></script>
+    <script>
+        require([
+            "esri/Map",
+            "esri/views/MapView", 
+            "esri/layers/FeatureLayer",
+            "esri/identity/IdentityManager"
+        ], function(Map, MapView, FeatureLayer, esriId) {
+            
+            const LEAP_SERVICE = 'https://uat-qportal.information.qld.gov.au/arcgis/rest/services/sirrte_idi_LEAP_ClaimParcels_vegtest/MapServer/1';
+            
+            window.signIn = function() {
+                esriId.getCredential(LEAP_SERVICE).then(function(credential) {
+                    console.log('Authentication successful');
+                    document.getElementById('loginPanel').style.display = 'none';
+                    document.getElementById('dashboard').style.display = 'block';
+                    initializeDashboard(credential.token);
+                }).catch(function(error) {
+                    console.error('Authentication failed:', error);
+                    alert('Authentication failed. Please check your credentials.');
+                });
+            };
+            
+            function initializeDashboard(token) {
+                // Create map
+                const map = new Map({
+                    basemap: "satellite"
+                });
+                
+                // Create map view
+                const view = new MapView({
+                    container: "mapView",
+                    map: map,
+                    center: [152.7, -27.3],
+                    zoom: 8
+                });
+                
+                // Add authenticated claim parcels layer
+                const claimParcelsLayer = new FeatureLayer({
+                    url: LEAP_SERVICE,
+                    customParameters: {
+                        token: token
+                    },
+                    popupTemplate: {
+                        title: "LEAP Claim Parcel",
+                        content: "Lot/Plan: {lotplan}<br>Traditional Owner: {claim_n}<br>Object ID: {OBJECTID}"
+                    }
+                });
+                
+                map.add(claimParcelsLayer);
+                
+                // Handle feature selection
+                view.on("click", function(event) {
+                    view.hitTest(event).then(function(response) {
+                        if (response.results.length > 0) {
+                            const feature = response.results[0].graphic;
+                            showParcelDetails(feature.attributes);
+                        }
+                    });
+                });
+            }
+            
+            function showParcelDetails(attributes) {
+                document.getElementById('parcelDetails').innerHTML = `
+                    <h3>📍 Selected Parcel</h3>
+                    <p><strong>Lot/Plan:</strong> ${attributes.lotplan || 'Unknown'}</p>
+                    <p><strong>Traditional Owner:</strong> ${attributes.claim_n || 'Unknown'}</p>
+                    <p><strong>Object ID:</strong> ${attributes.OBJECTID || 'N/A'}</p>
+                    <p><strong>Area:</strong> ${attributes.lot_area || 'Unknown'}</p>
+                    <p><strong>Locality:</strong> ${attributes.locality || 'Unknown'}</p>
+                `;
+            }
+        });
+    </script>
+</body>
+</html>
