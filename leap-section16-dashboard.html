@@ -144,32 +144,59 @@
         let currentParcel = null;
         let assessmentData = {};
         
-        require([
-            "esri/Map",
-            "esri/views/MapView", 
-            "esri/layers/FeatureLayer",
-            "esri/identity/IdentityManager"
-        ], function(Map, MapView, FeatureLayer, esriId) {
+        // Initialize without requiring ArcGIS modules first
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM loaded, initializing dashboard...');
             
+            // Try to load ArcGIS modules
+            try {
+                require([
+                    "esri/Map",
+                    "esri/views/MapView", 
+                    "esri/layers/FeatureLayer",
+                    "esri/identity/IdentityManager"
+                ], function(Map, MapView, FeatureLayer, esriId) {
+                    console.log('ArcGIS modules loaded successfully');
+                    initializeWithArcGIS(Map, MapView, FeatureLayer, esriId);
+                }, function(error) {
+                    console.error('Failed to load ArcGIS modules:', error);
+                    initializeWithoutMap();
+                });
+            } catch (error) {
+                console.error('Error loading ArcGIS:', error);
+                initializeWithoutMap();
+            }
+        });
+        
+        function initializeWithoutMap() {
+            console.log('Initializing dashboard without map');
+            document.getElementById('mapView').innerHTML = `
+                <div style="display: flex; align-items: center; justify-content: center; height: 100%; background: #f8f9fa; border: 2px dashed #ccc; color: #666;">
+                    <div style="text-align: center;">
+                        <h4>Map Unavailable</h4>
+                        <p>Unable to load ArcGIS map</p>
+                        <button class="btn" onclick="testWithSampleData()">🧪 Test with Sample Data</button>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function initializeWithArcGIS(Map, MapView, FeatureLayer, esriId) {
             const LEAP_SERVICE = 'https://uat-qportal.information.qld.gov.au/arcgis/rest/services/sirrte_idi_LEAP_ClaimParcels_vegtest/MapServer/1';
             
+            // Try authentication but don't require it
             esriId.getCredential(LEAP_SERVICE).then(function(credential) {
                 console.log('Authentication successful');
-                initializeDashboard(credential.token);
+                setupMap(Map, MapView, FeatureLayer, credential.token);
             }).catch(function(error) {
-                console.log('Authentication failed, trying without token:', error);
-                // Show login prompt
-                document.getElementById('parcelSummary').innerHTML = `
-                    <h3>🔐 Authentication Required</h3>
-                    <p>Please sign in to access LEAP claim parcel data</p>
-                    <button class="btn" onclick="tryAuthentication()">Sign In to LEAP</button>
-                `;
-                // Try to initialize map without authentication
-                initializeDashboard(null);
+                console.log('Authentication failed, proceeding without token:', error);
+                setupMap(Map, MapView, FeatureLayer, null);
             });
-            
-            function initializeDashboard(token) {
-                console.log('Initializing dashboard with token:', token ? 'Yes' : 'No');
+        }
+        
+        function setupMap(Map, MapView, FeatureLayer, token) {
+            try {
+                console.log('Setting up map...');
                 
                 const map = new Map({
                     basemap: "satellite"
@@ -182,74 +209,77 @@
                     zoom: 8
                 });
                 
-                // Handle map load errors
                 view.when(function() {
                     console.log('Map view loaded successfully');
-                }).catch(function(error) {
-                    console.error('Map view failed to load:', error);
-                    document.getElementById('mapView').innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">Map failed to load. Please refresh the page.</div>';
-                });
-                
-                // Try to add claim parcels layer
-                try {
-                    const layerConfig = {
-                        url: LEAP_SERVICE,
-                        outFields: ["*"],
-                        popupTemplate: {
-                            title: "LEAP Claim Parcel",
-                            content: function(feature) {
-                                const attrs = feature.graphic.attributes;
-                                return `
-                                    <strong>Lot/Plan:</strong> ${attrs.LOTPLAN || attrs.lotplan || 'Unknown'}<br>
-                                    <strong>Traditional Owner:</strong> ${attrs.CLAIM_N || attrs.claim_n || 'Unknown'}<br>
-                                    <strong>Locality:</strong> ${attrs.LOCALITY || attrs.locality || 'Unknown'}<br>
-                                    <strong>Area:</strong> ${attrs.LOT_AREA ? (attrs.LOT_AREA / 10000).toFixed(2) + ' hectares' : 'Unknown'}
-                                `;
-                            }
-                        }
-                    };
                     
-                    // Add token if available
-                    if (token) {
-                        layerConfig.customParameters = { token: token };
+                    // Try to add LEAP layer
+                    try {
+                        const layerConfig = {
+                            url: 'https://uat-qportal.information.qld.gov.au/arcgis/rest/services/sirrte_idi_LEAP_ClaimParcels_vegtest/MapServer/1',
+                            outFields: ["*"],
+                            popupTemplate: {
+                                title: "LEAP Claim Parcel",
+                                content: function(feature) {
+                                    const attrs = feature.graphic.attributes;
+                                    return `
+                                        <strong>Lot/Plan:</strong> ${attrs.LOTPLAN || attrs.lotplan || 'Unknown'}<br>
+                                        <strong>Traditional Owner:</strong> ${attrs.CLAIM_N || attrs.claim_n || 'Unknown'}<br>
+                                        <strong>Locality:</strong> ${attrs.LOCALITY || attrs.locality || 'Unknown'}
+                                    `;
+                                }
+                            }
+                        };
+                        
+                        if (token) {
+                            layerConfig.customParameters = { token: token };
+                        }
+                        
+                        const claimParcelsLayer = new FeatureLayer(layerConfig);
+                        
+                        claimParcelsLayer.when(function() {
+                            console.log('LEAP layer loaded successfully');
+                            updateParcelSummary('Map loaded successfully. Authentication status: ' + (token ? 'Authenticated' : 'Public access'));
+                        }).catch(function(error) {
+                            console.error('LEAP layer failed to load:', error);
+                            updateParcelSummary('Map loaded but LEAP layer requires authentication');
+                        });
+                        
+                        map.add(claimParcelsLayer);
+                        
+                        // Handle clicks
+                        view.on("click", function(event) {
+                            view.hitTest(event).then(function(response) {
+                                if (response.results.length > 0) {
+                                    const feature = response.results[0].graphic;
+                                    console.log('Feature selected:', feature.attributes);
+                                    selectParcel(feature.attributes);
+                                }
+                            });
+                        });
+                        
+                    } catch (layerError) {
+                        console.error('Error adding LEAP layer:', layerError);
+                        updateParcelSummary('Map loaded but LEAP layer unavailable');
                     }
                     
-                    const claimParcelsLayer = new FeatureLayer(layerConfig);
-                    
-                    // Handle layer load
-                    claimParcelsLayer.when(function() {
-                        console.log('Claim parcels layer loaded successfully');
-                    }).catch(function(error) {
-                        console.error('Failed to load claim parcels layer:', error);
-                        // Show error in parcel summary
-                        document.getElementById('parcelSummary').innerHTML = `
-                            <h3>⚠️ Layer Load Error</h3>
-                            <p>Unable to load claim parcels layer. Please check authentication.</p>
-                            <button class="btn" onclick="tryAuthentication()">Retry Authentication</button>
-                        `;
-                    });
-                    
-                    map.add(claimParcelsLayer);
-                    
-                    // Handle feature selection
-                    view.on("click", function(event) {
-                        view.hitTest(event).then(function(response) {
-                            if (response.results.length > 0) {
-                                const feature = response.results[0].graphic;
-                                console.log('Feature selected:', feature.attributes);
-                                selectParcel(feature.attributes);
-                            }
-                        });
-                    });
-                    
-                } catch (error) {
-                    console.error('Error setting up map layers:', error);
-                }
+                }).catch(function(error) {
+                    console.error('Map view failed to load:', error);
+                    document.getElementById('mapView').innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">Map failed to initialize</div>';
+                });
                 
-                // Store globals
-                window.mapView = view;
-                window.map = map;
+            } catch (error) {
+                console.error('Error setting up map:', error);
+                initializeWithoutMap();
             }
+        }
+        
+        function updateParcelSummary(message) {
+            document.getElementById('parcelSummary').innerHTML = `
+                <h3>Select a Parcel</h3>
+                <p>${message}</p>
+                <button class="btn secondary" onclick="testWithSampleData()" style="font-size: 12px;">🧪 Test with Sample Data</button>
+            `;
+        }
             
             window.selectParcel = function(attributes) {
                 currentParcel = attributes;
