@@ -1,4 +1,32 @@
-<!DOCTYPE html>
+// Global authentication function
+        window.tryAuthentication = function() {
+            const LEAP_SERVICE = 'https://uat-qportal.information.qld.gov.au/arcgis/rest/services/sirrte_idi_LEAP_ClaimParcels_vegtest/MapServer/1';
+            
+            esriId.getCredential(LEAP_SERVICE).then(function(credential) {
+                console.log('Authentication successful on retry');
+                location.reload(); // Reload page with authentication
+            }).catch(function(error) {
+                console.error('Authentication failed:', error);
+                alert('Authentication failed. Please check your credentials and try again.');
+            });
+        };
+        
+        // Test function for development
+        window.testWithSampleData = function() {
+            console.log('Testing with sample data');
+            const sampleAttributes = {
+                LOTPLAN: '45SP164230',
+                CLAIM_N: 'Wakka Wakka People',
+                LOCALITY: 'Eidsvold', 
+                SHIRE_NAME: 'North Burnett Council',
+                LOT_AREA: 948500, // 94.85 hectares
+                TENURE: 'Reserve for Police Paddock',
+                OBJECTID: 12345,
+                SURV_IND: 'Y',
+                REG_OWNER: 'The State of Queensland'
+            };
+            selectParcel(sampleAttributes);
+        };<!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
@@ -80,6 +108,7 @@
             <div class="parcel-summary" id="parcelSummary">
                 <h3>Select a Parcel</h3>
                 <p>Click a parcel on the map to begin Section 16 assessment</p>
+                <button class="btn secondary" onclick="testWithSampleData()" style="font-size: 12px;">🧪 Test with Sample Data</button>
             </div>
             
             <div style="text-align: center; margin-top: 15px;">
@@ -125,12 +154,23 @@
             const LEAP_SERVICE = 'https://uat-qportal.information.qld.gov.au/arcgis/rest/services/sirrte_idi_LEAP_ClaimParcels_vegtest/MapServer/1';
             
             esriId.getCredential(LEAP_SERVICE).then(function(credential) {
+                console.log('Authentication successful');
                 initializeDashboard(credential.token);
             }).catch(function(error) {
+                console.log('Authentication failed, trying without token:', error);
+                // Show login prompt
+                document.getElementById('parcelSummary').innerHTML = `
+                    <h3>🔐 Authentication Required</h3>
+                    <p>Please sign in to access LEAP claim parcel data</p>
+                    <button class="btn" onclick="tryAuthentication()">Sign In to LEAP</button>
+                `;
+                // Try to initialize map without authentication
                 initializeDashboard(null);
             });
             
             function initializeDashboard(token) {
+                console.log('Initializing dashboard with token:', token ? 'Yes' : 'No');
+                
                 const map = new Map({
                     basemap: "satellite"
                 });
@@ -142,33 +182,73 @@
                     zoom: 8
                 });
                 
-                const claimParcelsLayer = new FeatureLayer({
-                    url: LEAP_SERVICE,
-                    customParameters: token ? { token: token } : {},
-                    popupTemplate: {
-                        title: "LEAP Claim Parcel",
-                        content: function(feature) {
-                            const attrs = feature.graphic.attributes;
-                            return `
-                                <strong>Lot/Plan:</strong> ${attrs.LOTPLAN || attrs.lotplan || 'Unknown'}<br>
-                                <strong>Traditional Owner:</strong> ${attrs.CLAIM_N || attrs.claim_n || 'Unknown'}<br>
-                                <strong>Locality:</strong> ${attrs.LOCALITY || attrs.locality || 'Unknown'}<br>
-                                <strong>Area:</strong> ${attrs.LOT_AREA ? (attrs.LOT_AREA / 10000).toFixed(2) + ' hectares' : 'Unknown'}
-                            `;
+                // Handle map load errors
+                view.when(function() {
+                    console.log('Map view loaded successfully');
+                }).catch(function(error) {
+                    console.error('Map view failed to load:', error);
+                    document.getElementById('mapView').innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">Map failed to load. Please refresh the page.</div>';
+                });
+                
+                // Try to add claim parcels layer
+                try {
+                    const layerConfig = {
+                        url: LEAP_SERVICE,
+                        outFields: ["*"],
+                        popupTemplate: {
+                            title: "LEAP Claim Parcel",
+                            content: function(feature) {
+                                const attrs = feature.graphic.attributes;
+                                return `
+                                    <strong>Lot/Plan:</strong> ${attrs.LOTPLAN || attrs.lotplan || 'Unknown'}<br>
+                                    <strong>Traditional Owner:</strong> ${attrs.CLAIM_N || attrs.claim_n || 'Unknown'}<br>
+                                    <strong>Locality:</strong> ${attrs.LOCALITY || attrs.locality || 'Unknown'}<br>
+                                    <strong>Area:</strong> ${attrs.LOT_AREA ? (attrs.LOT_AREA / 10000).toFixed(2) + ' hectares' : 'Unknown'}
+                                `;
+                            }
                         }
+                    };
+                    
+                    // Add token if available
+                    if (token) {
+                        layerConfig.customParameters = { token: token };
                     }
-                });
-                
-                map.add(claimParcelsLayer);
-                
-                view.on("click", function(event) {
-                    view.hitTest(event).then(function(response) {
-                        if (response.results.length > 0) {
-                            const feature = response.results[0].graphic;
-                            selectParcel(feature.attributes);
-                        }
+                    
+                    const claimParcelsLayer = new FeatureLayer(layerConfig);
+                    
+                    // Handle layer load
+                    claimParcelsLayer.when(function() {
+                        console.log('Claim parcels layer loaded successfully');
+                    }).catch(function(error) {
+                        console.error('Failed to load claim parcels layer:', error);
+                        // Show error in parcel summary
+                        document.getElementById('parcelSummary').innerHTML = `
+                            <h3>⚠️ Layer Load Error</h3>
+                            <p>Unable to load claim parcels layer. Please check authentication.</p>
+                            <button class="btn" onclick="tryAuthentication()">Retry Authentication</button>
+                        `;
                     });
-                });
+                    
+                    map.add(claimParcelsLayer);
+                    
+                    // Handle feature selection
+                    view.on("click", function(event) {
+                        view.hitTest(event).then(function(response) {
+                            if (response.results.length > 0) {
+                                const feature = response.results[0].graphic;
+                                console.log('Feature selected:', feature.attributes);
+                                selectParcel(feature.attributes);
+                            }
+                        });
+                    });
+                    
+                } catch (error) {
+                    console.error('Error setting up map layers:', error);
+                }
+                
+                // Store globals
+                window.mapView = view;
+                window.map = map;
             }
             
             window.selectParcel = function(attributes) {
