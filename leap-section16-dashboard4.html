@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>LEAP Evidence Dashboard</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="stylesheet" href="https://js.arcgis.com/4.28/esri/themes/light/main.css">
+  <style>
+    body, html { margin:0; padding:0; height:100%; font-family:Arial,sans-serif; }
+    .container { display:flex; height:100%; }
+    #mapPane { flex:1; position:relative; }
+    #mapView { height:100%; width:100%; }
+    #instructionOverlay {
+      position:absolute; top:20px; left:20px;
+      background:rgba(255,255,255,0.9); padding:15px; border-radius:8px;
+      box-shadow:0 2px 4px rgba(0,0,0,0.2); max-width:280px;
+      font-size:14px;
+    }
+    #rightPane {
+      flex:1; overflow-y:auto; background:#f5f5f5; padding:20px;
+      box-sizing:border-box;
+    }
+    h1 { margin-top:0; color:#003087; font-size:1.5em; }
+    .section { margin-bottom:25px; background:white; border-radius:8px; padding:15px; box-shadow:0 2px 4px rgba(0,0,0,0.1); }
+    .section h2 { margin-top:0; font-size:1.2em; color:#003087; display:flex; align-items:center; }
+    .section h2 span { margin-right:6px; font-size:1.3em; }
+    .assessment-table { width:100%; border-collapse:collapse; }
+    .assessment-table th, .assessment-table td { padding:8px; border:1px solid #ddd; text-align:left; vertical-align:top; }
+    .assessment-table th { width:30%; background:#f0f0f0; }
+    .editable-field, .editable-area { width:100%; border:1px solid #ccc; border-radius:4px; padding:6px; }
+    .editable-area { height:60px; resize:vertical; }
+    .empty-hint { color:#888; font-style:italic; }
+    .btnFixed {
+      position:sticky; bottom:0; left:0; width:100%; background:white;
+      padding:10px 20px; box-shadow:0 -2px 4px rgba(0,0,0,0.1);
+      display:flex; justify-content:flex-end;
+    }
+    .btn { margin-left:10px; padding:10px 18px; font-size:14px; border:none; border-radius:6px; cursor:pointer; }
+    .btn.save { background:#6c757d; color:white; }
+    .btn.generate { background:#28a745; color:white; }
+    .external-link { text-decoration:none; color:#0066cc; margin-left:6px; }
+  </style>
+  <script src="https://js.arcgis.com/4.28/"></script>
+</head>
+<body>
+  <div class="container">
+    <div id="mapPane">
+      <div id="mapView"></div>
+      <div id="instructionOverlay">
+        <strong>👉 Step 1: Select a parcel</strong><br>
+        Click on the map to load parcel details and begin assessment.
+      </div>
+    </div>
+
+    <div id="rightPane">
+      <h1>📄 Section 16 Assessment</h1>
+      <div id="assessmentContent">
+        <p class="empty-hint">Select a parcel on the map to begin assessment.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="btnFixed">
+    <button class="btn save" onclick="saveAllAssessments()">💾 Save Assessment</button>
+    <button class="btn generate" onclick="generateSection16Report()">📄 Generate Section 16 Report</button>
+  </div>
+
+  <script>
+    let assessmentData = {};
+
+    require([
+      "esri/Map", "esri/views/MapView", "esri/layers/FeatureLayer", "esri/identity/IdentityManager"
+    ], function(Map, MapView, FeatureLayer, esriId) {
+
+      const service = 'https://uat-qportal.information.qld.gov.au/arcgis/rest/services/sirrte_idi_LEAP_ClaimParcels_vegtest/MapServer/1';
+
+      function init(token) {
+        const map = new Map({ basemap:"satellite" });
+        const view = new MapView({ container:"mapView", map, center:[152.7,-27.3], zoom:8 });
+
+        const layer = new FeatureLayer({
+          id:"leap-parcels", url:service, outFields:["*"], customParameters: token ? {token} : {},
+          popupTemplate:{ title:"Parcel", content:feature => {
+            const a = feature.graphic.attributes;
+            return `<strong>Lot/Plan:</strong> ${a.lotplan||'--'}<br>
+                    <strong>Owner:</strong> ${a.claim_n||'--'}<br>
+                    <strong>Locality:</strong> ${a.locality||'--'}<br>
+                    <strong>Area:</strong> ${a.lot_area? (a.lot_area/10000).toFixed(2)+' ha':'--'}`;
+          }}
+        });
+
+        view.map.add(layer);
+        view.on("click", evt => view.hitTest(evt).then(res => {
+          const f = res.results.find(r => r.graphic.layer?.id==="leap-parcels");
+          if (f) selectParcel(f.graphic.attributes);
+        }));
+      }
+
+      esriId.getCredential(service).then(c=>init(c.token)).catch(()=>init(null));
+    });
+
+    function hint(val, text) {
+      return val ? val : `<span class="empty-hint">${text}</span>`;
+    }
+
+    function selectParcel(a) {
+      document.getElementById('instructionOverlay').style.display='none';
+      assessmentData = {
+        lotplan: a.lotplan, claimName: a.claim_n, locality: a.locality,
+        areaHa: a.lot_area ? (a.lot_area/10000).toFixed(2)+' ha':'' ,
+        tenure: hint(a.tenure, 'Check tenure info'),
+        access: hint(a.access_l==='Y' && a.access_p==='Y'? 'Legal & practical':'Verify access via QLD Globe'),
+        valuation: hint(a.qvas_val, 'Check QVAS'),
+        elvas: hint(a.elvas_ref, 'Refer eLVAS'),
+        planning: hint(a.plan_schem, 'Check local/State planning'),
+        heritage: hint(a.qld_cul_he==='Y'? 'Listed':'None'),
+        cultural: hint(a.ind_cul_he==='Y'? 'Yes':'Refer Cultural DB')
+      };
+
+      document.getElementById('assessmentContent').innerHTML = `
+        <div class="section">
+          <h2><span>📍</span> Parcel Details</h2>
+          <table class="assessment-table">
+            <tr><th>Lot/Plan</th><td><div class="editable-field">${assessmentData.lotplan}</div></td></tr>
+            <tr><th>Locality</th><td><div class="editable-field">${assessmentData.locality}</div></td></tr>
+            <tr><th>Area</th><td><div class="editable-field">${assessmentData.areaHa}</div></td></tr>
+            <tr><th>Tenure</th><td><div class="editable-field">${assessmentData.tenure}</div></td></tr>
+          </table>
+        </div>
+
+        <div class="section">
+          <h2><span>🔧</span> Administrative Attributes</h2>
+          <table class="assessment-table">
+            <tr><th>Access</th><td><div class="editable-area">${assessmentData.access}</div></td></tr>
+            <tr><th>Valuation</th><td><div class="editable-field">${assessmentData.valuation}</div></td></tr>
+            <tr><th>eLVAS File</th><td><div class="editable-field">${assessmentData.elvas}</div></td></tr>
+          </table>
+        </div>
+
+        <div class="section">
+          <h2><span>📚</span> Planning & Heritage</h2>
+          <table class="assessment-table">
+            <tr><th>Planning Scheme</th><td><div class="editable-field">${assessmentData.planning}</div></td></tr>
+            <tr><th>Indigenous Heritage</th><td><div class="editable-field">${assessmentData.cultural}</div></td></tr>
+            <tr><th>QLD Heritage</th><td><div class="editable-field">${assessmentData.heritage}</div></td></tr>
+          </table>
+        </div>
+      `;
+    }
+
+    function saveAllAssessments() {
+      alert("✅ Save feature not implemented yet — coming soon!");
+    }
+    function generateSection16Report() {
+      alert("✅ Generate report feature not implemented yet — coming soon!");
+    }
+  </script>
+</body>
+</html>
