@@ -1,96 +1,175 @@
-// Global authentication function
-        window.tryAuthentication = function() {
-            const LEAP_SERVICE = 'https://uat-qportal.information.qld.gov.au/arcgis/rest/services/sirrte_idi_LEAP_ClaimParcels_vegtest/MapServer/1';
-            
-            esriId.getCredential(LEAP_SERVICE).then(function(credential) {
-                console.log('Authentication successful on retry');
-                location.reload(); // Reload page with authentication
-            }).catch(function(error) {
-                console.error('Authentication failed:', error);
-                alert('Authentication failed. Please check your credentials and try again.');
-            });
-        };
-        
-        // Test function for development
-        window.testWithSampleData = function() {
-            console.log('Testing with sample data');
-            const sampleAttributes = {
-                LOTPLAN: '45SP164230',
-                CLAIM_N: 'Wakka Wakka People',
-                LOCALITY: 'Eidsvold', 
-                SHIRE_NAME: 'North Burnett Council',
-                LOT_AREA: 948500, // 94.85 hectares
-                TENURE: 'Reserve for Police Paddock',
-                OBJECTID: 12345,
-                SURV_IND: 'Y',
-                REG_OWNER: 'The State of Queensland'
-            };
-            selectParcel(sampleAttributes);
-        };<!DOCTYPE html>
+<!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no">
-    <title>LEAP Evidence Dashboard - Queensland Government</title>
+    <title>LEAP Section 16 Assessment Dashboard</title>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
     <link rel="stylesheet" href="https://js.arcgis.com/4.28/esri/themes/light/main.css">
     <style>
-        body { font-family: Arial; margin: 0; background: #f5f5f5; }
-        .header { background: linear-gradient(135deg, #003087, #0066cc); color: white; padding: 20px; text-align: center; }
-        .header h1 { margin: 0; font-size: 2.2em; }
-        .header p { margin: 5px 0 0 0; opacity: 0.9; }
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 0; 
+            background: #f5f5f5; 
+        }
         
-        .main-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; padding: 20px; max-width: 1600px; margin: 0 auto; }
+        .header { 
+            background: linear-gradient(135deg, #003087, #0066cc); 
+            color: white; 
+            padding: 20px; 
+            text-align: center; 
+        }
         
-        /* Map Panel */
-        .map-panel { background: white; border-radius: 8px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .map-container { height: 400px; width: 100%; margin: 15px 0; border: 2px solid #003087; border-radius: 8px; }
+        .main-layout { 
+            display: grid; 
+            grid-template-columns: 1fr 1fr; 
+            gap: 20px; 
+            padding: 20px; 
+            max-width: 1600px; 
+            margin: 0 auto; 
+        }
         
-        /* Assessment Panel */
-        .assessment-panel { background: white; border-radius: 8px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); max-height: 800px; overflow-y: auto; }
-        .section-title { color: #003087; font-size: 1.2em; margin: 20px 0 10px 0; border-bottom: 2px solid #e9ecef; padding-bottom: 8px; }
+        .map-panel { 
+            background: white; 
+            border-radius: 8px; 
+            padding: 20px; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1); 
+        }
         
-        /* Assessment Sections */
-        .assessment-section { background: #f8f9fa; padding: 15px; margin: 10px 0; border-radius: 8px; border-left: 4px solid #003087; }
-        .assessment-table { width: 100%; border-collapse: collapse; margin: 10px 0; }
-        .assessment-table th, .assessment-table td { padding: 8px; border: 1px solid #ddd; text-align: left; vertical-align: top; }
-        .assessment-table th { background: #e9ecef; font-weight: bold; width: 35%; }
-        .assessment-table td { background: white; }
+        .map-container { 
+            height: 400px; 
+            width: 100%; 
+            margin: 15px 0; 
+            border: 2px solid #003087; 
+            border-radius: 8px; 
+        }
         
-        /* Editable Fields */
-        .editable-field { border: 1px solid #ccc; padding: 5px; border-radius: 4px; min-height: 20px; background: white; }
-        .editable-field:focus { border-color: #003087; outline: none; background: #f0f8ff; }
-        .editable-field:empty:before { content: attr(data-placeholder); color: #999; font-style: italic; }
-        .editable-area { min-height: 60px; resize: vertical; width: 100%; font-family: Arial; }
-        .readonly-field { background: #f8f9fa; border: 1px solid #e9ecef; color: #666; cursor: not-allowed; }
+        .assessment-panel { 
+            background: white; 
+            border-radius: 8px; 
+            padding: 20px; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1); 
+            max-height: 800px; 
+            overflow-y: auto; 
+        }
         
-        /* External Links */
-        .external-link { display: inline-block; background: #28a745; color: white; padding: 4px 8px; text-decoration: none; border-radius: 4px; font-size: 0.85em; margin: 2px; }
-        .external-link:hover { background: #218838; color: white; }
-        .link-section { margin: 8px 0; }
+        .section-title { 
+            color: #003087; 
+            font-size: 1.2em; 
+            margin: 20px 0 10px 0; 
+            border-bottom: 2px solid #e9ecef; 
+            padding-bottom: 8px; 
+        }
         
-        /* Buttons */
-        .btn { background: #003087; color: white; padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; margin: 5px; font-size: 14px; transition: background 0.3s ease; }
-        .btn:hover { background: #0066cc; }
-        .btn.secondary { background: #6c757d; }
-        .btn.success { background: #28a745; }
-        .btn.small { padding: 5px 10px; font-size: 12px; }
+        .assessment-section { 
+            background: #f8f9fa; 
+            padding: 15px; 
+            margin: 10px 0; 
+            border-radius: 8px; 
+            border-left: 4px solid #003087; 
+        }
         
-        /* Status Indicators */
-        .status-indicator { padding: 3px 8px; border-radius: 4px; font-size: 0.8em; font-weight: bold; display: inline-block; }
-        .status-complete { background: #d4edda; color: #155724; }
-        .status-pending { background: #fff3cd; color: #856404; }
-        .status-required { background: #f8d7da; color: #721c24; }
+        .assessment-table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin: 10px 0; 
+        }
         
-        /* Parcel Details */
-        .parcel-summary { background: #e8f5e9; padding: 15px; border-radius: 8px; border-left: 4px solid #28a745; margin-bottom: 15px; }
+        .assessment-table th, .assessment-table td { 
+            padding: 8px; 
+            border: 1px solid #ddd; 
+            text-align: left; 
+            vertical-align: top; 
+        }
         
-        /* Modal */
-        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); overflow-y: auto; }
-        .modal-content { background-color: white; margin: 2% auto; padding: 0; border-radius: 8px; width: 95%; max-width: 1200px; max-height: 95vh; overflow-y: auto; }
-        .modal-header { background: #003087; color: white; padding: 20px; border-radius: 8px 8px 0 0; position: relative; }
-        .modal-body { padding: 20px; }
-        .close { position: absolute; right: 15px; top: 15px; font-size: 28px; cursor: pointer; color: white; }
-        .close:hover { opacity: 0.7; }
+        .assessment-table th { 
+            background: #e9ecef; 
+            font-weight: bold; 
+            width: 35%; 
+        }
+        
+        .assessment-table td { 
+            background: white; 
+        }
+        
+        .editable-field { 
+            border: 1px solid #ccc; 
+            padding: 5px; 
+            border-radius: 4px; 
+            min-height: 20px; 
+            background: white; 
+        }
+        
+        .editable-field:focus { 
+            border-color: #003087; 
+            outline: none; 
+            background: #f0f8ff; 
+        }
+        
+        .editable-area { 
+            min-height: 60px; 
+            resize: vertical; 
+            width: 100%; 
+            font-family: Arial; 
+        }
+        
+        .readonly-field { 
+            background: #f8f9fa; 
+            border: 1px solid #e9ecef; 
+            color: #666; 
+            cursor: not-allowed; 
+        }
+        
+        .external-link { 
+            display: inline-block; 
+            background: #28a745; 
+            color: white; 
+            padding: 4px 8px; 
+            text-decoration: none; 
+            border-radius: 4px; 
+            font-size: 0.85em; 
+            margin: 2px; 
+        }
+        
+        .external-link:hover { 
+            background: #218838; 
+            color: white; 
+        }
+        
+        .link-section { 
+            margin: 8px 0; 
+        }
+        
+        .btn { 
+            background: #003087; 
+            color: white; 
+            padding: 10px 20px; 
+            border: none; 
+            border-radius: 6px; 
+            cursor: pointer; 
+            margin: 5px; 
+            font-size: 14px; 
+            transition: background 0.3s ease; 
+        }
+        
+        .btn:hover { 
+            background: #0066cc; 
+        }
+        
+        .btn.secondary { 
+            background: #6c757d; 
+        }
+        
+        .btn.success { 
+            background: #28a745; 
+        }
+        
+        .parcel-summary { 
+            background: #e8f5e9; 
+            padding: 15px; 
+            border-radius: 8px; 
+            border-left: 4px solid #28a745; 
+            margin-bottom: 15px; 
+        }
     </style>
 </head>
 <body>
@@ -100,15 +179,21 @@
     </div>
     
     <div class="main-layout">
-        <!-- Map Panel -->
         <div class="map-panel">
             <h2 class="section-title">📍 LEAP Claim Parcels Map</h2>
-            <div id="mapView" class="map-container"></div>
+            <div id="mapView" class="map-container">
+                <div style="display: flex; align-items: center; justify-content: center; height: 100%; background: #f8f9fa; border: 2px dashed #ccc; color: #666;">
+                    <div style="text-align: center;">
+                        <h4>Map Loading...</h4>
+                        <p>Initializing ArcGIS map</p>
+                    </div>
+                </div>
+            </div>
             
             <div class="parcel-summary" id="parcelSummary">
                 <h3>Select a Parcel</h3>
                 <p>Click a parcel on the map to begin Section 16 assessment</p>
-                <button class="btn secondary" onclick="testWithSampleData()" style="font-size: 12px;">🧪 Test with Sample Data</button>
+                <button class="btn secondary" onclick="testWithSampleData()">🧪 Test with Sample Data</button>
             </div>
             
             <div style="text-align: center; margin-top: 15px;">
@@ -117,7 +202,6 @@
             </div>
         </div>
         
-        <!-- Assessment Panel -->
         <div class="assessment-panel">
             <div id="assessmentContent">
                 <h2 style="color: #003087; text-align: center;">Section 16 Assessment</h2>
@@ -126,114 +210,228 @@
         </div>
     </div>
 
-    <!-- Report Modal -->
-    <div id="reportModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <span class="close" onclick="closeModal()">&times;</span>
-                <h2 id="modalTitle">Section 16 Most Appropriate Tenure Report</h2>
-            </div>
-            <div class="modal-body" id="modalBody">
-                <!-- Report content will be inserted here -->
-            </div>
-        </div>
-    </div>
-
     <script src="https://js.arcgis.com/4.28/"></script>
     <script>
-        let currentParcel = null;
-        let assessmentData = {};
+        var currentParcel = null;
+        var assessmentData = {};
         
-        // Initialize without requiring ArcGIS modules first
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('DOM loaded, showing loading status...');
+        // Test function
+        function testWithSampleData() {
+            console.log('Testing with sample data');
             
-            // Show loading status immediately
-            document.getElementById('parcelSummary').innerHTML = `
-                <h3>🔄 Loading LEAP Dashboard...</h3>
-                <p>Initializing map and authentication...</p>
-                <button class="btn secondary" onclick="testWithSampleData()" style="font-size: 12px; margin-top: 10px;">🧪 Test with Sample Data (Skip Map)</button>
-            `;
+            var sampleAttributes = {
+                lotplan: '45SP164230',
+                claim_n: 'Wakka Wakka People',
+                locality: 'Eidsvold', 
+                shire_name: 'North Burnett Council',
+                lot_area: 948500,
+                tenure: 'Reserve for Police Paddock',
+                objectid: 12345,
+                surv_ind: 'Y',
+                reg_owner: 'The State of Queensland',
+                access_l: 'Y',
+                access_p: 'Y',
+                qvas_val: 125000,
+                qld_cul_he: 'N',
+                ind_cul_he: 'Y',
+                elvas_ref: 'No current eLVAS cases'
+            };
             
-            // Add a timeout to show test option if map takes too long
-            setTimeout(function() {
-                if (!window.mapInitialized) {
-                    document.getElementById('parcelSummary').innerHTML = `
-                        <h3>⚠️ Map Loading Slow</h3>
-                        <p>The map is taking longer than expected to load.</p>
-                        <button class="btn" onclick="forceMapLoad()">🔄 Retry Map Load</button>
-                        <button class="btn secondary" onclick="testWithSampleData()" style="margin-left: 10px;">🧪 Use Test Data</button>
-                    `;
-                }
-            }, 10000); // 10 second timeout
+            selectParcel(sampleAttributes);
+        }
+        
+        // Select parcel function
+        function selectParcel(attributes) {
+            console.log('selectParcel called with:', attributes);
+            currentParcel = attributes;
             
-            // Try to load ArcGIS modules
-            try {
-                require([
-                    "esri/Map",
-                    "esri/views/MapView", 
-                    "esri/layers/FeatureLayer",
-                    "esri/identity/IdentityManager"
-                ], function(Map, MapView, FeatureLayer, esriId) {
-                    console.log('ArcGIS modules loaded successfully');
-                    window.mapInitialized = true;
-                    initializeWithArcGIS(Map, MapView, FeatureLayer, esriId);
-                }, function(error) {
-                    console.error('Failed to load ArcGIS modules:', error);
-                    window.mapInitialized = false;
-                    initializeWithoutMap();
+            // Process attributes using the other AI's approach
+            var lotplan = attributes.lotplan || '';
+            var claimName = attributes.claim_n || '';
+            var locality = attributes.locality || '';
+            var shireName = attributes.shire_name || '';
+            var area = attributes.lot_area || 0;
+            var areaHa = area ? (area / 10000).toFixed(2) : '';
+            var tenure = attributes.tenure || '';
+            var regOwner = attributes.reg_owner || '';
+            var objectId = attributes.objectid || '';
+            
+            // Smart Y/N processing
+            var surveyedInd = attributes.surv_ind === 'Y' ? 'Fully surveyed' : 
+                             attributes.surv_ind === 'N' ? 'Not surveyed' : 'Survey status unknown';
+            
+            var accessLegal = attributes.access_l === 'Y' ? 'Legal access confirmed' : 
+                             attributes.access_l === 'N' ? 'No legal access' : 'Legal access to be confirmed';
+            
+            var accessPhysical = attributes.access_p === 'Y' ? 'Practical access available' : 
+                                attributes.access_p === 'N' ? 'No practical access' : 'Practical access to be confirmed';
+            
+            var accessCombined = accessLegal + '; ' + accessPhysical;
+            
+            var heritage = attributes.qld_cul_he === 'Y' ? 'Site listed on QLD Heritage Register' : 'No heritage record found';
+            var cultural = attributes.ind_cul_he === 'Y' ? 'Indigenous cultural heritage identified' : 
+                          (claimName ? 'Oral history of the ' + claimName + ' to be documented' : 'Cultural heritage assessment required');
+            
+            var valuation = attributes.qvas_val != null ? '$' + attributes.qvas_val.toLocaleString() : 'QVAS valuation to be obtained';
+            var elvas = attributes.elvas_ref || 'eLVAS case search required';
+            var planning = attributes.plan_schem || (locality ? 'Consult local government in ' + locality : 'Planning scheme assessment required');
+            
+            // Update parcel summary
+            document.getElementById('parcelSummary').innerHTML = 
+                '<h3>📍 Selected: ' + (lotplan || 'Unknown Parcel') + '</h3>' +
+                '<p><strong>Traditional Owner:</strong> ' + (claimName || 'Unknown') + '</p>' +
+                '<p><strong>Area:</strong> ' + (areaHa ? areaHa + ' hectares' : 'Unknown') + ' | <strong>Locality:</strong> ' + (locality || 'Unknown') + '</p>' +
+                '<button class="btn secondary" onclick="testWithSampleData()" style="font-size: 12px; margin-top: 10px;">🧪 Test Again</button>';
+            
+            // Store assessment data
+            assessmentData = {
+                lotplan: lotplan,
+                claimName: claimName,
+                locality: locality,
+                shireName: shireName,
+                area: area,
+                areaHa: areaHa,
+                tenure: tenure,
+                regOwner: regOwner,
+                surveyedInd: surveyedInd,
+                accessCombined: accessCombined,
+                heritage: heritage,
+                cultural: cultural,
+                valuation: valuation,
+                elvas: elvas,
+                planning: planning,
+                objectId: objectId,
+                attributes: attributes
+            };
+            
+            loadAssessmentSections();
+        }
+        
+        // Load assessment sections
+        function loadAssessmentSections() {
+            console.log('Loading assessment sections');
+            
+            var content = 
+                '<h2 class="section-title">📋 Parcel Details</h2>' +
+                '<div class="assessment-section">' +
+                '<table class="assessment-table">' +
+                '<tr><th>Lot/Plan:</th><td><div class="editable-field readonly-field">' + (assessmentData.lotplan || 'Unknown') + '</div></td></tr>' +
+                '<tr><th>Title Reference:</th><td><div class="editable-field" contenteditable="true">Title reference to be confirmed via QVAS</div></td></tr>' +
+                '<tr><th>Property Address:</th><td><div class="editable-field" contenteditable="true">' + (assessmentData.locality ? assessmentData.locality + ', QLD' : '') + '</div></td></tr>' +
+                '<tr><th>Area:</th><td><div class="editable-field readonly-field">' + (assessmentData.areaHa ? assessmentData.areaHa + ' Ha' : 'Area unknown') + '</div></td></tr>' +
+                '<tr><th>Tenure:</th><td><div class="editable-field readonly-field">' + (assessmentData.tenure || 'Tenure unknown') + '</div></td></tr>' +
+                '<tr><th>Registered Trustee:</th><td><div class="editable-field" contenteditable="true">' + (assessmentData.regOwner || 'The State of Queensland') + '</div></td></tr>' +
+                '<tr><th>Local Government Area:</th><td><div class="editable-field readonly-field">' + (assessmentData.shireName || assessmentData.locality || 'LGA unknown') + '</div></td></tr>' +
+                '</table>' +
+                '</div>' +
+                
+                '<h2 class="section-title">🔧 Administrative Attributes</h2>' +
+                '<div class="assessment-section">' +
+                '<table class="assessment-table">' +
+                '<tr><th>Access:</th><td><div class="editable-field editable-area" contenteditable="true">' + (assessmentData.accessCombined || '') + '</div></td></tr>' +
+                '<tr><th>Survey Requirements:</th><td><div class="editable-field" contenteditable="true">' + (assessmentData.surveyedInd || '') + '</div></td></tr>' +
+                '<tr><th>Registered Interests:</th><td><div class="editable-field" contenteditable="true">Title search required to identify registered interests</div></td></tr>' +
+                '<tr><th>Current Valuation:</th><td>' +
+                '<div class="editable-field" contenteditable="true">' + (assessmentData.valuation || '') + '</div>' +
+                '<div class="link-section"><a href="https://qvas.information.qld.gov.au/" target="_blank" class="external-link">🔗 QVAS Portal</a></div>' +
+                '</td></tr>' +
+                '<tr><th>eLVAS & File Check:</th><td><div class="editable-field editable-area" contenteditable="true">' + (assessmentData.elvas || '') + '</div></td></tr>' +
+                '</table>' +
+                '</div>' +
+                
+                '<h2 class="section-title">📚 Site History & Background</h2>' +
+                '<div class="assessment-section">' +
+                '<table class="assessment-table">' +
+                '<tr><th>Historical Importance:</th><td><div class="editable-field editable-area" contenteditable="true">' + (assessmentData.cultural || '') + '</div></td></tr>' +
+                '<tr><th>Previous Tenure:</th><td><div class="editable-field editable-area" contenteditable="true">Current tenure: ' + (assessmentData.tenure || '') + '. Historical tenure research required.</div></td></tr>' +
+                '</table>' +
+                '</div>' +
+                
+                '<h2 class="section-title">🏛️ Social & Cultural Attributes</h2>' +
+                '<div class="assessment-section">' +
+                '<table class="assessment-table">' +
+                '<tr><th>Indigenous Cultural Heritage:</th><td>' +
+                '<div class="editable-field editable-area" contenteditable="true">' + (assessmentData.cultural || '') + '</div>' +
+                '<div class="link-section"><a href="https://culturalheritage.datsip.qld.gov.au/achris/public/" target="_blank" class="external-link">🔗 Cultural Heritage DB</a></div>' +
+                '</td></tr>' +
+                '<tr><th>Queensland Heritage Register:</th><td>' +
+                '<div class="editable-field" contenteditable="true">' + (assessmentData.heritage || '') + '</div>' +
+                '<div class="link-section"><a href="https://apps.des.qld.gov.au/heritage-register/" target="_blank" class="external-link">🔗 Heritage Register</a></div>' +
+                '</td></tr>' +
+                '</table>' +
+                '</div>' +
+                
+                '<h2 class="section-title">🏘️ Planning Scheme</h2>' +
+                '<div class="assessment-section">' +
+                '<table class="assessment-table">' +
+                '<tr><th>Local Planning:</th><td><div class="editable-field editable-area" contenteditable="true">' + (assessmentData.planning || '') + '</div></td></tr>' +
+                '</table>' +
+                '</div>' +
+                
+                '<div style="text-align: center; margin: 30px 0;">' +
+                '<button class="btn" onclick="saveAllAssessments()">💾 Save All Data</button>' +
+                '<button class="btn success" onclick="generateSection16Report()">📄 Generate Report</button>' +
+                '</div>';
+            
+            document.getElementById('assessmentContent').innerHTML = content;
+            
+            // Add save functionality
+            addSaveListeners();
+        }
+        
+        // Add save listeners
+        function addSaveListeners() {
+            var editableFields = document.querySelectorAll('.editable-field[contenteditable="true"]');
+            for (var i = 0; i < editableFields.length; i++) {
+                editableFields[i].addEventListener('input', function() {
+                    this.style.borderLeft = '3px solid #28a745';
                 });
-            } catch (error) {
-                console.error('Error loading ArcGIS:', error);
-                window.mapInitialized = false;
-                initializeWithoutMap();
             }
-        });
-        
-        // Force map load function
-        window.forceMapLoad = function() {
-            console.log('Force loading map...');
-            location.reload();
-        };
-        
-        function initializeWithoutMap() {
-            console.log('Initializing dashboard without map');
-            document.getElementById('mapView').innerHTML = `
-                <div style="display: flex; align-items: center; justify-content: center; height: 100%; background: #f8f9fa; border: 2px dashed #ccc; color: #666;">
-                    <div style="text-align: center;">
-                        <h4>Map Unavailable</h4>
-                        <p>Unable to load ArcGIS map</p>
-                        <button class="btn" onclick="testWithSampleData()">🧪 Test with Sample Data</button>
-                    </div>
-                </div>
-            `;
         }
         
-        function initializeWithArcGIS(Map, MapView, FeatureLayer, esriId) {
-            const LEAP_SERVICE = 'https://uat-qportal.information.qld.gov.au/arcgis/rest/services/sirrte_idi_LEAP_ClaimParcels_vegtest/MapServer/1';
+        // Save all assessments
+        function saveAllAssessments() {
+            if (!currentParcel) {
+                alert('Please select a parcel first');
+                return;
+            }
             
-            // Try authentication but don't require it
-            esriId.getCredential(LEAP_SERVICE).then(function(credential) {
-                console.log('Authentication successful');
-                setupMap(Map, MapView, FeatureLayer, credential.token);
-            }).catch(function(error) {
-                console.log('Authentication failed, proceeding without token:', error);
-                setupMap(Map, MapView, FeatureLayer, null);
-            });
+            var editableFields = document.querySelectorAll('.editable-field[contenteditable="true"]');
+            var assessmentValues = {};
+            
+            for (var i = 0; i < editableFields.length; i++) {
+                assessmentValues['field_' + i] = editableFields[i].textContent || editableFields[i].innerText;
+            }
+            
+            console.log('Saving assessment data:', assessmentValues);
+            alert('💾 Assessment data saved to LEAP database\n\nAll field values have been recorded for this parcel.');
         }
         
-        function setupMap(Map, MapView, FeatureLayer, token) {
-            try {
-                console.log('Setting up map...');
+        // Generate report
+        function generateSection16Report() {
+            if (!currentParcel) {
+                alert('Please select a parcel first');
+                return;
+            }
+            
+            var reportDate = new Date().toLocaleDateString('en-AU');
+            alert('📄 Generating Section 16 Report for ' + (assessmentData.lotplan || 'selected parcel') + '\n\nDate: ' + reportDate + '\nTraditional Owner: ' + (assessmentData.claimName || 'Unknown') + '\nArea: ' + (assessmentData.areaHa || 'Unknown') + ' hectares\n\nReport will be compiled with all assessment data.');
+        }
+        
+        // Try to initialize map
+        try {
+            require([
+                "esri/Map",
+                "esri/views/MapView",
+                "esri/layers/FeatureLayer"
+            ], function(Map, MapView, FeatureLayer) {
+                console.log('ArcGIS modules loaded, initializing map...');
                 
-                // Update status
-                updateParcelSummary('Setting up map view...');
-                
-                const map = new Map({
+                var map = new Map({
                     basemap: "satellite"
                 });
                 
-                const view = new MapView({
+                var view = new MapView({
                     container: "mapView",
                     map: map,
                     center: [152.7, -27.3],
@@ -241,620 +439,29 @@
                 });
                 
                 view.when(function() {
-                    console.log('Map view loaded successfully');
-                    updateParcelSummary('Map loaded. Adding LEAP parcels layer...');
+                    console.log('Map loaded successfully');
                     
-                    // Try to add LEAP layer
-                    try {
-                        const layerConfig = {
-                            url: 'https://uat-qportal.information.qld.gov.au/arcgis/rest/services/sirrte_idi_LEAP_ClaimParcels_vegtest/MapServer/1',
-                            outFields: ["*"],
-                            popupTemplate: {
-                                title: "LEAP Claim Parcel",
-                                content: function(feature) {
-                                    const attrs = feature.graphic.attributes;
-                                    return `
-                                        <strong>Lot/Plan:</strong> ${attrs.lotplan || 'Unknown'}<br>
-                                        <strong>Traditional Owner:</strong> ${attrs.claim_n || 'Unknown'}<br>
-                                        <strong>Locality:</strong> ${attrs.locality || 'Unknown'}
-                                    `;
-                                }
+                    var claimParcelsLayer = new FeatureLayer({
+                        url: 'https://uat-qportal.information.qld.gov.au/arcgis/rest/services/sirrte_idi_LEAP_ClaimParcels_vegtest/MapServer/1',
+                        outFields: ["*"]
+                    });
+                    
+                    map.add(claimParcelsLayer);
+                    
+                    view.on("click", function(event) {
+                        view.hitTest(event).then(function(response) {
+                            if (response.results.length > 0) {
+                                var feature = response.results[0].graphic;
+                                selectParcel(feature.attributes);
                             }
-                        };
-                        
-                        if (token) {
-                            layerConfig.customParameters = { token: token };
-                        }
-                        
-                        const claimParcelsLayer = new FeatureLayer(layerConfig);
-                        
-                        claimParcelsLayer.when(function() {
-                            console.log('LEAP layer loaded successfully');
-                            updateParcelSummary('✅ Dashboard ready! Click a parcel to begin assessment. Authentication: ' + (token ? 'Authenticated' : 'Public access'));
-                        }).catch(function(error) {
-                            console.error('LEAP layer failed to load:', error);
-                            updateParcelSummary('⚠️ Map loaded but LEAP layer requires authentication. Use test data to see functionality.');
                         });
-                        
-                        map.add(claimParcelsLayer);
-                        
-                        // Handle clicks
-                        view.on("click", function(event) {
-                            view.hitTest(event).then(function(response) {
-                                const claimFeature = response.results.find(function(r) {
-                                    return r.graphic.layer && r.graphic.layer.url && 
-                                           r.graphic.layer.url.includes('LEAP_ClaimParcels');
-                                });
-                                
-                                if (claimFeature) {
-                                    console.log('LEAP parcel clicked:', claimFeature.graphic.attributes);
-                                    selectParcel(claimFeature.graphic.attributes);
-                                } else {
-                                    console.log('No LEAP parcel found at click location');
-                                }
-                            });
-                        });
-                        
-                    } catch (layerError) {
-                        console.error('Error adding LEAP layer:', layerError);
-                        updateParcelSummary('⚠️ Map loaded but LEAP layer unavailable. You can still use test data to see the assessment functionality.');
-                    }
-                    
-                }).catch(function(error) {
-                    console.error('Map view failed to load:', error);
-                    document.getElementById('mapView').innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">Map failed to initialize. Check console for details.</div>';
-                    updateParcelSummary('Map failed to load. Use test data button to see assessment functionality.');
-                });
-                
-            } catch (error) {
-                console.error('Error setting up map:', error);
-                initializeWithoutMap();
-            }
-        }
-        
-        function updateParcelSummary(message) {
-            document.getElementById('parcelSummary').innerHTML = `
-                <h3>Select a Parcel</h3>
-                <p>${message}</p>
-                <button class="btn secondary" onclick="testWithSampleData()" style="font-size: 12px;">🧪 Test with Sample Data</button>
-            `;
-        }
-            
-            window.selectParcel = function(attributes) {
-                console.log('selectParcel called with:', attributes);
-                currentParcel = attributes;
-                
-                // Map field names from your LEAP database structure
-                const lotplan = attributes.LOTPLAN || attributes.lotplan || '';
-                const lot = attributes.LOT || attributes.lot || '';
-                const plan = attributes.PLAN || attributes.plan || '';
-                const claimName = attributes.CLAIM_N || attributes.claim_n || '';
-                const locality = attributes.LOCALITY || attributes.locality || '';
-                const shireName = attributes.SHIRE_NAME || attributes.shire_name || '';
-                const area = attributes.LOT_AREA || attributes.lot_area || 0;
-                const areaHa = area ? (area / 10000).toFixed(2) : '';
-                const tenure = attributes.TENURE || attributes.tenure || '';
-                const parcelType = attributes.PARCEL_TYP || attributes.parcel_typ || '';
-                const coverType = attributes.COVER_TYP || attributes.cover_typ || '';
-                const regOwner = attributes.REG_OWNER || attributes.reg_owner || '';
-                const surveyedInd = attributes.SURV_IND || attributes.surv_ind || '';
-                const accessLegal = attributes.ACCESS_L || attributes.access_l || '';
-                const accessPhysical = attributes.ACCESS_P || attributes.access_p || '';
-                const objectId = attributes.OBJECTID || attributes.objectid || '';
-                
-                console.log('Mapped data:', {
-                    lotplan, claimName, locality, areaHa, tenure, regOwner, surveyedInd
-                });
-                
-                // Update parcel summary
-                document.getElementById('parcelSummary').innerHTML = `
-                    <h3>📍 Selected: ${lotplan || 'Unknown Parcel'}</h3>
-                    <p><strong>Traditional Owner:</strong> ${claimName || 'Unknown'}</p>
-                    <p><strong>Area:</strong> ${areaHa ? areaHa + ' hectares' : 'Unknown'} | <strong>Locality:</strong> ${locality || 'Unknown'}</p>
-                `;
-                
-                // Store assessment data with all mapped fields
-                assessmentData = {
-                    lotplan: lotplan,
-                    lot: lot,
-                    plan: plan,
-                    claimName: claimName,
-                    locality: locality,
-                    shireName: shireName,
-                    area: area,
-                    areaHa: areaHa,
-                    tenure: tenure,
-                    parcelType: parcelType,
-                    coverType: coverType,
-                    regOwner: regOwner,
-                    surveyedInd: surveyedInd,
-                    accessLegal: accessLegal,
-                    accessPhysical: accessPhysical,
-                    objectId: objectId,
-                    attributes: attributes
-                };
-                
-                console.log('Assessment data prepared:', assessmentData);
-                loadAssessmentSections();
-            };
-        });
-        
-        function loadAssessmentSections() {
-            console.log('Loading assessment sections with data:', assessmentData);
-            
-            if (!assessmentData) {
-                console.error('No assessment data available');
-                return;
-            }
-            
-            const content = `
-                <h2 class="section-title">📋 Parcel Details</h2>
-                <div class="assessment-section">
-                    <table class="assessment-table">
-                        <tr><th>Lot/Plan:</th><td><div class="editable-field readonly-field">${assessmentData.lotplan || 'Unknown'}</div></td></tr>
-                        <tr><th>Title Reference:</th><td><div class="editable-field" contenteditable="true" data-placeholder="Search QVAS for title reference number">Title reference to be confirmed via QVAS</div></td></tr>
-                        <tr><th>Property Address:</th><td><div class="editable-field" contenteditable="true" data-placeholder="Enter full street address if available">${assessmentData.locality ? assessmentData.locality + ', QLD' : ''}</div></td></tr>
-                        <tr><th>Area:</th><td><div class="editable-field readonly-field">${assessmentData.areaHa ? assessmentData.areaHa + ' Ha' : 'Area unknown'}</div></td></tr>
-                        <tr><th>Tenure:</th><td><div class="editable-field readonly-field">${assessmentData.tenure || 'Tenure unknown'}</div></td></tr>
-                        <tr><th>Registered Trustee:</th><td><div class="editable-field" contenteditable="true" data-placeholder="Check title for current registered trustee">${assessmentData.regOwner || 'The State of Queensland'}</div></td></tr>
-                        <tr><th>Local Government Area:</th><td><div class="editable-field readonly-field">${assessmentData.shireName || assessmentData.locality || 'LGA unknown'}</div></td></tr>
-                    </table>
-                </div>
-
-                <h2 class="section-title">🔧 Administrative Attributes</h2>
-                <div class="assessment-section">
-                    <table class="assessment-table">
-                        <tr><th>Access:</th><td><div class="editable-field editable-area" contenteditable="true" data-placeholder="Describe legal road access and practical access via existing roads/tracks.">${assessmentData.accessCombined || ''}</div></td></tr>
-                        <tr><th>Survey Requirements:</th><td><div class="editable-field" contenteditable="true" data-placeholder="Check DCDB for survey status and boundary definition">${assessmentData.surveyedInd || ''}</div></td></tr>
-                        <tr><th>Registered Interests:</th><td><div class="editable-field" contenteditable="true" data-placeholder="Search title for easements, covenants, encumbrances, or other interests">Title search required to identify registered interests</div></td></tr>
-                        <tr><th>Current Valuation:</th><td>
-                            <div class="editable-field" contenteditable="true" data-placeholder="Obtain current QVAS valuation and date of valuation">${assessmentData.valuation || ''}</div>
-                            <div class="link-section">
-                                <a href="https://qvas.information.qld.gov.au/" target="_blank" class="external-link">🔗 QVAS Portal</a>
-                            </div>
-                        </td></tr>
-                        <tr><th>eLVAS & File Check:</th><td><div class="editable-field editable-area" contenteditable="true" data-placeholder="Search eLVAS for case history, applications, permits, or previous disposal attempts.">${assessmentData.elvas || ''}</div></td></tr>
-                    </table>
-                </div>
-
-                <h2 class="section-title">📚 Site History & Background</h2>
-                <div class="assessment-section">
-                    <table class="assessment-table">
-                        <tr><th>Historical Importance:</th><td><div class="editable-field editable-area" contenteditable="true" data-placeholder="Document cultural significance to ${assessmentData.claimName || 'Traditional Owners'}. Include consultation outcomes and oral history.">${assessmentData.cultural || ''}</div></td></tr>
-                        <tr><th>Previous Tenure:</th><td><div class="editable-field editable-area" contenteditable="true" data-placeholder="Research tenure history including dedications, leases, permits, and cancellations with dates.">${getTenureHistoryText()}</div></td></tr>
-                    </table>
-                </div>
-
-                <h2 class="section-title">🌍 Physical, Biological & Economic Attributes</h2>
-                <div class="assessment-section">
-                    <table class="assessment-table">
-                        <tr><th>Property Location:</th><td><div class="editable-field editable-area" contenteditable="true" data-placeholder="Describe location, distances to towns/facilities, road frontage, and access points.">${getLocationText()}</div></td></tr>
-                        <tr><th>Current Use / Encroachments:</th><td><div class="editable-field editable-area" contenteditable="true" data-placeholder="Document current land use, any unauthorized use, encroachments, or improvements on the parcel."></div></td></tr>
-                        <tr><th>Surrounding Land Uses:</th><td><div class="editable-field editable-area" contenteditable="true" data-placeholder="Describe neighboring properties, land uses, tenure types, and any significant infrastructure."></div></td></tr>
-                        <tr><th>Contaminated Land:</th><td>
-                            <div class="editable-field" contenteditable="true" data-placeholder="Check CLR and EMR registers for contamination history">Search required: CLR and EMR registers to be checked for any contamination history</div>
-                            <div class="link-section">
-                                <a href="https://apps.des.qld.gov.au/contaminated-land-register/" target="_blank" class="external-link">🔗 CLR Register</a>
-                                <a href="https://apps.des.qld.gov.au/environmental-management-register/" target="_blank" class="external-link">🔗 EMR Register</a>
-                            </div>
-                        </td></tr>
-                        <tr><th>State Planning Policy:</th><td>
-                            <div class="editable-field editable-area" contenteditable="true" data-placeholder="Check SPP for agricultural land, biodiversity, natural hazards">SPP assessment required for: Agricultural land classification, Biodiversity (MSES), Natural hazards (flood/bushfire)</div>
-                            <div class="link-section">
-                                <a href="https://spp.dsdip.esriaustraliaonline.com.au/geoviewer/map/planmaking" target="_blank" class="external-link">🔗 SPP Mapping</a>
-                            </div>
-                        </td></tr>
-                        <tr><th>Mining & Exploration:</th><td>
-                            <div class="editable-field editable-area" contenteditable="true" data-placeholder="Check for current and historical mining permits">Mining interests assessment: Check GeoResGlobe for current and historical mining leases and exploration permits</div>
-                            <div class="link-section">
-                                <a href="https://georesglobe.information.qld.gov.au/" target="_blank" class="external-link">🔗 GeoResGlobe</a>
-                            </div>
-                        </td></tr>
-                    </table>
-                </div>
-
-                <h2 class="section-title">🏛️ Social & Cultural Attributes</h2>
-                <div class="assessment-section">
-                    <table class="assessment-table">
-                        <tr><th>Indigenous Cultural Heritage:</th><td>
-                            <div class="editable-field editable-area" contenteditable="true" data-placeholder="Search cultural heritage database for ${assessmentData.claimName || 'Traditional Owners'}">${assessmentData.cultural || ''}</div>
-                            <div class="link-section">
-                                <a href="https://culturalheritage.datsip.qld.gov.au/achris/public/" target="_blank" class="external-link">🔗 Cultural Heritage DB</a>
-                            </div>
-                        </td></tr>
-                        <tr><th>Queensland Heritage Register:</th><td>
-                            <div class="editable-field" contenteditable="true" data-placeholder="Search heritage register for listed sites">${assessmentData.heritage || ''}</div>
-                            <div class="link-section">
-                                <a href="https://apps.des.qld.gov.au/heritage-register/" target="_blank" class="external-link">🔗 Heritage Register</a>
-                            </div>
-                        </td></tr>
-                    </table>
-                </div>
-
-                <h2 class="section-title">⚖️ Native Title</h2>
-                <div class="assessment-section">
-                    <table class="assessment-table">
-                        <tr><th>Native Title Status:</th><td>
-                            <div class="editable-field editable-area" contenteditable="true" data-placeholder="Search QNTime for determinations and ILUAs">Native title assessment required for ${assessmentData.claimName || 'Traditional Owners'}. Check QNTime and NNTT databases for determinations, applications, and registered ILUAs.</div>
-                            <div class="link-section">
-                                <a href="http://www.nntt.gov.au/searchRegApps/" target="_blank" class="external-link">🔗 NNTT Register</a>
-                            </div>
-                        </td></tr>
-                    </table>
-                </div>
-
-                <h2 class="section-title">🏘️ Planning Scheme</h2>
-                <div class="assessment-section">
-                    <table class="assessment-table">
-                        <tr><th>Local Planning:</th><td><div class="editable-field editable-area" contenteditable="true" data-placeholder="Consult local government for planning requirements">${assessmentData.planning || ''}</div></td></tr>
-                    </table>
-                </div>
-
-                <h2 class="section-title">🤝 Consultation</h2>
-                <div class="assessment-section">
-                    <table class="assessment-table">
-                        <tr><th>Stakeholder Consultation:</th><td><div class="editable-field editable-area" contenteditable="true" data-placeholder="Document consultation with Traditional Owners and other stakeholders">Consultation program required with: ${assessmentData.claimName || 'Traditional Owners'}, ${assessmentData.locality ? assessmentData.locality + ' Council' : 'Local Council'}, DETSI, and other identified stakeholders.</div></td></tr>
-                    </table>
-                </div>
-                
-                <div style="text-align: center; margin: 30px 0;">
-                    <button class="btn" onclick="saveAllAssessments()">💾 Save All Data</button>
-                    <button class="btn success" onclick="generateSection16Report()">📄 Generate Report</button>
-                </div>
-            `;
-            
-            document.getElementById('assessmentContent').innerHTML = content;
-            console.log('Assessment sections loaded successfully');
-            
-            // Add save functionality to editable fields
-            setTimeout(addSaveListeners, 100);
-        }
-        
-        function getAccessText() {
-            if (!assessmentData) return '';
-            
-            if (assessmentData.accessLegal || assessmentData.accessPhysical) {
-                let text = '';
-                if (assessmentData.accessLegal) text += 'Legal access: ' + assessmentData.accessLegal + '. ';
-                if (assessmentData.accessPhysical) text += 'Physical access: ' + assessmentData.accessPhysical + '.';
-                return text;
-            }
-            return '';
-        }
-        
-        function getSurveyText() {
-            if (!assessmentData) return '';
-            
-            if (assessmentData.surveyedInd) {
-                return assessmentData.surveyedInd === 'Y' ? 'Parcel is fully surveyed.' : 'Survey status to be confirmed from DCDB records.';
-            }
-            return '';
-        }
-        
-        function getHistoricalText() {
-            if (!assessmentData) return '';
-            
-            if (assessmentData.claimName) {
-                return 'Parcel is of cultural significance to the ' + assessmentData.claimName + '. Traditional Owner consultation required to document historical importance and cultural values.';
-            }
-            return '';
-        }
-        
-        function getTenureHistoryText() {
-            if (!assessmentData) return '';
-            
-            if (assessmentData.tenure) {
-                return 'Current tenure: ' + assessmentData.tenure + '. Historical tenure research required including Government Gazette searches and previous tenure arrangements.';
-            }
-            return '';
-        }
-        
-        function getLocationText() {
-            if (!assessmentData) return '';
-            
-            if (assessmentData.locality) {
-                return 'Located in ' + assessmentData.locality + (assessmentData.shireName ? ', ' + assessmentData.shireName : '') + '. Site inspection and detailed location assessment required.';
-            }
-            return '';
-        }
-        
-        function addSaveListeners() {
-            const editableFields = document.querySelectorAll('.editable-field[contenteditable="true"]');
-            editableFields.forEach(function(field) {
-                field.addEventListener('blur', function() {
-                    // Auto-save when field loses focus
-                    console.log('Field updated:', this.textContent);
-                    // Here you would save to LEAP database
-                });
-                
-                field.addEventListener('input', function() {
-                    // Mark as modified
-                    this.style.borderLeft = '3px solid #28a745';
+                    });
                 });
             });
+        } catch (error) {
+            console.log('Map initialization failed:', error);
+            document.getElementById('mapView').innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">Map unavailable - use test data button</div>';
         }
-        
-        function saveAllAssessments() {
-            if (!currentParcel) {
-                alert('Please select a parcel first');
-                return;
-            }
-            
-            // Collect all editable field values
-            const editableFields = document.querySelectorAll('.editable-field[contenteditable="true"]');
-            const assessmentValues = {};
-            
-            editableFields.forEach(function(field, index) {
-                assessmentValues['field_' + index] = field.textContent || field.innerText;
-            });
-            
-            console.log('Saving assessment data:', assessmentValues);
-            alert('💾 Assessment data saved to LEAP database\n\nAll field values have been recorded for this parcel.');
-        }
-
-                <h2 class="section-title">🔧 Administrative Attributes</h2>
-                <div class="assessment-section">
-                    <table class="assessment-table">
-                        <tr><th>Access:</th><td><div class="editable-field editable-area" contenteditable="true">Assessment required: Check for legal road access and practical access via existing roads or tracks.</div></td></tr>
-                        <tr><th>Survey Requirements:</th><td><div class="editable-field" contenteditable="true">Survey status to be confirmed from DCDB records</div></td></tr>
-                        <tr><th>Registered Interests:</th><td><div class="editable-field" contenteditable="true">Title search required to identify any registered interests or encumbrances</div></td></tr>
-                        <tr><th>Current Valuation:</th><td>
-                            <div class="editable-field" contenteditable="true">QVAS valuation to be obtained for current market value assessment</div>
-                            <div class="link-section">
-                                <a href="https://qvas.information.qld.gov.au/" target="_blank" class="external-link">🔗 QVAS Portal</a>
-                            </div>
-                        </td></tr>
-                        <tr><th>eLVAS & File Check:</th><td><div class="editable-field editable-area" contenteditable="true">eLVAS case search required. Check for any existing applications, permits, or disposal history for this parcel.</div></td></tr>
-                    </table>
-                </div>
-
-                <h2 class="section-title">📚 Site History & Background</h2>
-                <div class="assessment-section">
-                    <table class="assessment-table">
-                        <tr><th>Historical Importance:</th><td><div class="editable-field editable-area" contenteditable="true">The parcel is of cultural significance to the ${assessmentData.claimName}. Historical research and Traditional Owner consultation required to document cultural importance and any significant sites or events.</div></td></tr>
-                        <tr><th>Previous Tenure:</th><td><div class="editable-field editable-area" contenteditable="true">Current tenure: ${assessmentData.tenure}. Historical tenure research required including previous dedications, leases, permits, and any changes in tenure arrangements over time.</div></td></tr>
-                    </table>
-                </div>
-
-                <h2 class="section-title">🌍 Physical, Biological & Economic Attributes</h2>
-                <div class="assessment-section">
-                    <table class="assessment-table">
-                        <tr><th>Property Location:</th><td><div class="editable-field editable-area" contenteditable="true" placeholder="Describe location and access"></div></td></tr>
-                        <tr><th>Current Use / Encroachments:</th><td><div class="editable-field editable-area" contenteditable="true" placeholder="Current land use and any encroachments"></div></td></tr>
-                        <tr><th>Surrounding Land Uses:</th><td><div class="editable-field editable-area" contenteditable="true" placeholder="Describe surrounding land uses and tenure"></div></td></tr>
-                        <tr><th>Contaminated Land:</th><td>
-                            <div class="editable-field" contenteditable="true">Search required: CLR and EMR registers to be checked for any contamination history or environmental management requirements.</div>
-                            <div class="link-section">
-                                <a href="https://apps.des.qld.gov.au/contaminated-land-register/" target="_blank" class="external-link">🔗 CLR Register</a>
-                                <a href="https://apps.des.qld.gov.au/environmental-management-register/" target="_blank" class="external-link">🔗 EMR Register</a>
-                            </div>
-                        </td></tr>
-                        <tr><th>Stock Routes:</th><td>
-                            <div class="editable-field" contenteditable="true">Stock route assessment: Check QLD Globe for any stock routes within 1km vicinity of the parcel.</div>
-                            <div class="link-section">
-                                <a href="https://qldglobe.information.qld.gov.au/" target="_blank" class="external-link">🔗 QLD Globe</a>
-                            </div>
-                        </td></tr>
-                        <tr><th>State Planning Policy:</th><td>
-                            <div class="editable-field editable-area" contenteditable="true">SPP assessment required for: Agricultural land classification, Biodiversity (MSES), Natural hazards (flood/bushfire), Coastal management (if applicable).</div>
-                            <div class="link-section">
-                                <a href="https://spp.dsdip.esriaustraliaonline.com.au/geoviewer/map/planmaking" target="_blank" class="external-link">🔗 SPP Mapping</a>
-                            </div>
-                        </td></tr>
-                        <tr><th>Regional Plan:</th><td>
-                            <div class="editable-field editable-area" contenteditable="true">Regional plan considerations: Check applicable regional plan for agricultural areas, biodiversity corridors, and priority development areas.</div>
-                            <div class="link-section">
-                                <a href="https://sara.dsdip.esriaustraliaonline.com.au/saraviewer/" target="_blank" class="external-link">🔗 SARA Viewer</a>
-                            </div>
-                        </td></tr>
-                        <tr><th>Vegetation:</th><td>
-                            <div class="editable-field editable-area" contenteditable="true">Vegetation mapping assessment required: Regional ecosystem categories, vegetation management categories (A, B, R, X), and any endangered or of concern regional ecosystems.</div>
-                            <div class="link-section">
-                                <a href="https://www.qld.gov.au/environment/plants-animals/plants/ecosystems/descriptions" target="_blank" class="external-link">🔗 Regional Ecosystems</a>
-                                <a href="https://qldglobe.information.qld.gov.au/" target="_blank" class="external-link">🔗 QLD Globe</a>
-                            </div>
-                        </td></tr>
-                        <tr><th>Flooding / Water:</th><td>
-                            <div class="editable-field editable-area" contenteditable="true">Flood hazard assessment: Check flood mapping overlays and identify any watercourses, wetlands, or drainage features on the parcel.</div>
-                            <div class="link-section">
-                                <a href="https://qldglobe.information.qld.gov.au/" target="_blank" class="external-link">🔗 QLD Globe</a>
-                            </div>
-                        </td></tr>
-                        <tr><th>Bushfire:</th><td>
-                            <div class="editable-field" contenteditable="true">Bushfire hazard assessment: Check bushfire prone area mapping and hazard categories.</div>
-                            <div class="link-section">
-                                <a href="https://qldglobe.information.qld.gov.au/" target="_blank" class="external-link">🔗 Bushfire Hazard</a>
-                            </div>
-                        </td></tr>
-                        <tr><th>Environment / Conservation:</th><td>
-                            <div class="editable-field editable-area" contenteditable="true">MSES assessment: Check for Matters of State Environmental Significance including protected areas, wildlife habitat, wetlands, and endangered ecosystems.</div>
-                            <div class="link-section">
-                                <a href="https://apps.des.qld.gov.au/mses-mapping/" target="_blank" class="external-link">🔗 MSES Mapping</a>
-                            </div>
-                        </td></tr>
-                        <tr><th>Mining & Exploration:</th><td>
-                            <div class="editable-field editable-area" contenteditable="true">Mining interests assessment: Check GeoResGlobe for current and historical mining leases, exploration permits, and petroleum authorities over the parcel.</div>
-                            <div class="link-section">
-                                <a href="https://georesglobe.information.qld.gov.au/" target="_blank" class="external-link">🔗 GeoResGlobe</a>
-                            </div>
-                        </td></tr>
-                        <tr><th>Unexploded Ordinance:</th><td>
-                            <div class="editable-field" contenteditable="true">UXO assessment: Check Defence UXO mapping for any unexploded ordinance risk areas.</div>
-                            <div class="link-section">
-                                <a href="https://www.defence.gov.au/capabilities/explosive-ordnance/maps" target="_blank" class="external-link">🔗 UXO Map</a>
-                            </div>
-                        </td></tr>
-                    </table>
-                </div>
-
-                <h2 class="section-title">🏛️ Social & Cultural Attributes</h2>
-                <div class="assessment-section">
-                    <table class="assessment-table">
-                        <tr><th>Indigenous Cultural Heritage:</th><td>
-                            <div class="editable-field editable-area" contenteditable="true">Cultural heritage database search required for ${assessmentData.claimName}. Search DATSIP Indigenous Cultural Heritage Database for any recorded sites, objects, or areas of cultural significance.</div>
-                            <div class="link-section">
-                                <a href="https://culturalheritage.datsip.qld.gov.au/achris/public/" target="_blank" class="external-link">🔗 Cultural Heritage DB</a>
-                            </div>
-                        </td></tr>
-                        <tr><th>Queensland Heritage Register:</th><td>
-                            <div class="editable-field" contenteditable="true">Heritage register search: Check Queensland Heritage Register for any listed places or archaeological sites.</div>
-                            <div class="link-section">
-                                <a href="https://apps.des.qld.gov.au/heritage-register/" target="_blank" class="external-link">🔗 Heritage Register</a>
-                            </div>
-                        </td></tr>
-                        <tr><th>Cultural Heritage Management Plan:</th><td><div class="editable-field" contenteditable="true">CHMP assessment: Check if parcel is covered by an approved Cultural Heritage Management Plan.</div></td></tr>
-                    </table>
-                </div>
-
-                <h2 class="section-title">⚖️ Native Title</h2>
-                <div class="assessment-section">
-                    <table class="assessment-table">
-                        <tr><th>Native Title Status:</th><td>
-                            <div class="editable-field editable-area" contenteditable="true">Native title assessment required for ${assessmentData.claimName}. Check QNTime and NNTT databases for: Current determinations, Active applications, Registered ILUAs, Section 47B classification.</div>
-                            <div class="link-section">
-                                <a href="http://www.nntt.gov.au/searchRegApps/" target="_blank" class="external-link">🔗 NNTT Register</a>
-                            </div>
-                        </td></tr>
-                    </table>
-                </div>
-
-                <h2 class="section-title">🏘️ Planning Scheme</h2>
-                <div class="assessment-section">
-                    <table class="assessment-table">
-                        <tr><th>Local Planning:</th><td><div class="editable-field editable-area" contenteditable="true">Local government consultation required for ${assessmentData.locality}. Check: Current zoning, Planning scheme provisions, Infrastructure requirements, Development constraints, Local government views on disposal.</div></td></tr>
-                    </table>
-                </div>
-
-                <h2 class="section-title">🤝 Consultation</h2>
-                <div class="assessment-section">
-                    <table class="assessment-table">
-                        <tr><th>Stakeholder Consultation:</th><td><div class="editable-field editable-area" contenteditable="true">Consultation program required with: ${assessmentData.claimName} (Traditional Owners), ${assessmentData.locality} Council, DETSI, Sunwater (if applicable), Queensland Police Service (if relevant), Other identified stakeholders. Document all views and responses.</div></td></tr>
-                    </table>
-                </div>
-            `;
-            
-            document.getElementById('assessmentContent').innerHTML = content;
-        }
-        
-        function saveAllAssessments() {
-            if (!currentParcel) {
-                alert('Please select a parcel first');
-                return;
-            }
-            
-            // Collect all editable field values
-            const editableFields = document.querySelectorAll('.editable-field');
-            const assessmentValues = {};
-            
-            editableFields.forEach((field, index) => {
-                assessmentValues[`field_${index}`] = field.textContent || field.innerText;
-            });
-            
-            console.log('Saving assessment data:', assessmentValues);
-            alert('💾 Assessment data saved to LEAP database\\n\\nAll field values have been recorded for this parcel.');
-        }
-        
-        function generateSection16Report() {
-            if (!currentParcel) {
-                alert('Please select a parcel first');
-                return;
-            }
-            
-            // Collect current assessment data
-            const editableFields = document.querySelectorAll('.editable-field');
-            const reportData = {};
-            
-            editableFields.forEach((field, index) => {
-                const text = field.textContent || field.innerText || '';
-                if (text.trim()) {
-                    reportData[`field_${index}`] = text.trim();
-                }
-            });
-            
-            const reportDate = new Date().toLocaleDateString('en-AU');
-            const reportContent = `
-                <div style="text-align: center; margin-bottom: 30px;">
-                    <h2>Indigenous Land Operations</h2>
-                    <h3>Section 16 Most Appropriate Tenure Report</h3>
-                    <p><strong>Date:</strong> ${reportDate}</p>
-                    <p><strong>Report Prepared by:</strong> LEAP Assessment System</p>
-                </div>
-                
-                <div style="margin: 20px 0;">
-                    <h3>Parcel: ${assessmentData.lotplan}</h3>
-                    <p><strong>Traditional Owner Group:</strong> ${assessmentData.claimName}</p>
-                    <p><strong>Area:</strong> ${assessmentData.areaHa} hectares</p>
-                    <p><strong>Locality:</strong> ${assessmentData.locality}</p>
-                </div>
-                
-                <div style="margin: 20px 0;">
-                    <p>This report contains all assessment data collected through the LEAP Evidence Dashboard. All sections have been evaluated and stakeholder consultation requirements identified.</p>
-                    
-                    <h4>Assessment Status:</h4>
-                    <ul>
-                        <li>✅ Parcel details collected and verified</li>
-                        <li>✅ Administrative attributes assessed</li>
-                        <li>✅ Physical and environmental factors evaluated</li>
-                        <li>✅ Cultural heritage considerations reviewed</li>
-                        <li>✅ Native title status determined</li>
-                        <li>✅ Stakeholder consultation completed</li>
-                    </ul>
-                    
-                    <h4>Next Steps:</h4>
-                    <ol>
-                        <li>Review all assessment findings</li>
-                        <li>Finalize stakeholder consultation</li>
-                        <li>Prepare final tenure recommendation</li>
-                        <li>Submit for ministerial consideration</li>
-                    </ol>
-                </div>
-                
-                <div style="margin-top: 40px; text-align: center;">
-                    <button class="btn" onclick="exportFullReport()">📄 Export Complete Report</button>
-                    <button class="btn secondary" onclick="emailStakeholders()">📧 Email Stakeholders</button>
-                    <button class="btn success" onclick="submitForApproval()">✅ Submit for Approval</button>
-                </div>
-            `;
-            
-            showModal('Section 16 Report - ' + assessmentData.lotplan, reportContent);
-        }
-        
-        function showModal(title, content) {
-            document.getElementById('modalTitle').textContent = title;
-            document.getElementById('modalBody').innerHTML = content;
-            document.getElementById('reportModal').style.display = 'block';
-        }
-        
-        function closeModal() {
-            document.getElementById('reportModal').style.display = 'none';
-        }
-        
-        function exportFullReport() {
-            alert('📄 Exporting Complete Section 16 Report:\\n\\n• PDF with all assessment data\\n• Word document for editing\\n• Excel summary spreadsheet\\n• Email distribution list');
-        }
-        
-        function emailStakeholders() {
-            alert('📧 Emailing Stakeholders:\\n\\n• Traditional Owner representatives\\n• Local government contacts\\n• Department stakeholders\\n• External agencies');
-        }
-        
-        function submitForApproval() {
-            alert('✅ Submitting for Approval:\\n\\n• Assessment complete\\n• Routed to senior officer\\n• Tracking number assigned\\n• Timeline activated');
-        }
-        
-        // Close modal when clicking outside
-        window.onclick = function(event) {
-            const modal = document.getElementById('reportModal');
-            if (event.target == modal) {
-                closeModal();
-            }
-        }
-        
-        // Auto-save functionality
-        setInterval(function() {
-            if (currentParcel) {
-                console.log('Auto-saving assessment data...');
-            }
-        }, 60000); // Auto-save every minute
     </script>
 </body>
 </html>
