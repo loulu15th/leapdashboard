@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>LEAP Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link
+    rel="stylesheet"
+    href="https://js.arcgis.com/4.28/esri/themes/light/main.css"
+  />
+  <script src="https://js.arcgis.com/4.28/"></script>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f0f2f5;
+    }
+
+    header {
+      background: #003087;
+      color: white;
+      padding: 16px 32px;
+      text-align: center;
+    }
+
+    .main {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      height: calc(100vh - 72px);
+      gap: 10px;
+      padding: 10px;
+    }
+
+    .map-container {
+      background: white;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+    }
+
+    .map-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    #lotplanInput {
+      padding: 6px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      width: 180px;
+    }
+
+    #viewDiv {
+      flex: 1;
+      margin-top: 10px;
+      border: 2px solid #003087;
+      border-radius: 6px;
+    }
+
+    .assessment {
+      background: white;
+      padding: 16px;
+      overflow-y: auto;
+      height: 100%;
+      box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+    }
+
+    h2 {
+      color: #003087;
+      font-size: 1.2em;
+      border-bottom: 1px solid #ccc;
+      padding-bottom: 5px;
+    }
+
+    .field {
+      margin: 10px 0;
+    }
+
+    .field label {
+      display: block;
+      font-weight: bold;
+      margin-bottom: 4px;
+    }
+
+    .field span {
+      background: #f9f9f9;
+      padding: 8px;
+      display: block;
+      border-radius: 4px;
+      border: 1px solid #ddd;
+    }
+
+    .hint {
+      font-size: 0.85em;
+      color: #777;
+      margin-top: 4px;
+    }
+
+    .external-link {
+      display: inline-block;
+      margin-top: 4px;
+      background: #0066cc;
+      color: white;
+      padding: 4px 8px;
+      border-radius: 4px;
+      text-decoration: none;
+      font-size: 0.85em;
+    }
+
+    .external-link:hover {
+      background: #004a99;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🏛️ LEAP Claim Parcel Dashboard</h1>
+    <p>Queensland Government – Land Evaluation & Planning</p>
+  </header>
+
+  <div class="main">
+    <!-- Map Panel -->
+    <div class="map-container">
+      <div class="map-header">
+        <h2>Parcel Map</h2>
+        <input
+          type="text"
+          id="lotplanInput"
+          placeholder="Search LotPlan e.g. 45SP164230"
+        />
+      </div>
+      <div id="viewDiv"></div>
+    </div>
+
+    <!-- Assessment Panel -->
+    <div class="assessment" id="assessmentPanel">
+      <h2>Section 16 Assessment</h2>
+      <p>Select a parcel from the map or use LotPlan search to begin.</p>
+    </div>
+  </div>
+
+  <script>
+    require([
+      "esri/Map",
+      "esri/views/MapView",
+      "esri/layers/FeatureLayer",
+      "esri/widgets/Search"
+    ], (Map, MapView, FeatureLayer, Search) => {
+      const parcelUrl =
+        "https://uat-qportal.information.qld.gov.au/arcgis/rest/services/sirrte_idi_LEAP_ClaimParcels_vegtest/MapServer/1";
+
+      const map = new Map({ basemap: "topo-vector" });
+      const view = new MapView({
+        container: "viewDiv",
+        map,
+        center: [152.7, -27.3],
+        zoom: 7
+      });
+
+      const claimLayer = new FeatureLayer({
+        url: parcelUrl,
+        outFields: ["*"],
+        popupEnabled: false
+      });
+
+      map.add(claimLayer);
+
+      view.on("click", (event) => {
+        view.hitTest(event).then((res) => {
+          const graphic = res.results.find((r) => r.graphic.layer === claimLayer)
+            ?.graphic;
+          if (graphic) displayDetails(graphic.attributes);
+        });
+      });
+
+      document.getElementById("lotplanInput").addEventListener("keypress", (e) => {
+        if (e.key === "Enter") {
+          const lotplan = e.target.value.trim().toUpperCase();
+          claimLayer
+            .queryFeatures({
+              where: `lotplan = '${lotplan}'`,
+              outFields: ["*"],
+              returnGeometry: true
+            })
+            .then((res) => {
+              if (res.features.length > 0) {
+                const f = res.features[0];
+                view.goTo(f.geometry.extent.expand(2));
+                displayDetails(f.attributes);
+              } else {
+                alert("LotPlan not found.");
+              }
+            });
+        }
+      });
+
+      function displayDetails(attr) {
+        const panel = document.getElementById("assessmentPanel");
+
+        const safe = (v, hint = "❓ Double-check external sources.") =>
+          v && v !== "0" ? v : `<span class="hint">${hint}</span>`;
+
+        panel.innerHTML = `
+          <h2>Assessment: ${attr.lotplan || "Unknown"}</h2>
+          <div class="field">
+            <label>LotPlan</label>
+            <span>${attr.lotplan || "N/A"}</span>
+          </div>
+          <div class="field">
+            <label>Claim Name</label>
+            <span>${safe(attr.claim_n)}</span>
+          </div>
+          <div class="field">
+            <label>Access</label>
+            <span>${safe(attr.access_l)} / ${safe(attr.access_p)}</span>
+          </div>
+          <div class="field">
+            <label>Tenure</label>
+            <span>${safe(attr.tenure)}</span>
+          </div>
+          <div class="field">
+            <label>Locality</label>
+            <span>${safe(attr.locality)}</span>
+          </div>
+          <div class="field">
+            <label>Lot Area (m²)</label>
+            <span>${safe(attr.lot_area)}</span>
+          </div>
+          <div class="field">
+            <label>Valuation</label>
+            <span>${safe(attr.qvas_val, "Check via QVAS")}</span>
+            <a class="external-link" href="https://qvas.information.qld.gov.au/" target="_blank">QVAS Portal</a>
+          </div>
+          <div class="field">
+            <label>Contaminated Land</label>
+            <span>${safe(attr.contam_lan, "Check CLR & EMR registers")}</span>
+            <a class="external-link" href="https://apps.des.qld.gov.au/contaminated-land-register/" target="_blank">CLR</a>
+            <a class="external-link" href="https://apps.des.qld.gov.au/environmental-management-register/" target="_blank">EMR</a>
+          </div>
+          <div class="field">
+            <label>Planning & SPP</label>
+            <a class="external-link" href="https://sppims-dams.dsdilgp.qld.gov.au/spp/?tab=layers" target="_blank">Open SPP Mapping</a>
+          </div>
+        `;
+      }
+    });
+  </script>
+</body>
+</html>
