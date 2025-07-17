@@ -1,0 +1,220 @@
+<!-- Use full HTML contents from here -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>LEAP Dashboard – Section 16</title>
+  <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <link rel="stylesheet" href="https://js.arcgis.com/4.28/esri/themes/light/main.css" />
+  <script src="https://js.arcgis.com/4.28/"></script>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      font-family: Arial, sans-serif;
+      background: #f8f9fa;
+    }
+    #app {
+      display: flex;
+      height: 100%;
+    }
+    #viewDiv {
+      flex: 1;
+      position: relative;
+    }
+    #sidebar {
+      width: 480px;
+      overflow-y: auto;
+      background: #ffffff;
+      border-left: 1px solid #ccc;
+      padding: 20px;
+    }
+    h2 {
+      color: #003087;
+      border-bottom: 2px solid #dee2e6;
+      padding-bottom: 4px;
+      margin-top: 25px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10px 0;
+    }
+    th {
+      text-align: left;
+      background: #f1f1f1;
+      padding: 8px;
+      border: 1px solid #ccc;
+      width: 30%;
+    }
+    td {
+      padding: 8px;
+      border: 1px solid #ccc;
+    }
+    #searchBar {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 10;
+      background: #fff;
+      padding: 8px;
+      box-shadow: 0 0 5px rgba(0,0,0,0.3);
+      border-radius: 4px;
+    }
+    #searchBar input {
+      width: 200px;
+      padding: 5px;
+    }
+    .hint {
+      color: #888;
+      font-style: italic;
+    }
+    .footer-links {
+      margin-top: 20px;
+      font-size: 0.9em;
+    }
+    .footer-links a {
+      color: #007bff;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="viewDiv"></div>
+    <div id="sidebar">
+      <h2>🗺️ Start Here</h2>
+      <p>Select a parcel on the map or search a Lot/Plan to begin.</p>
+      <div id="parcelInfo"></div>
+      <div class="footer-links">
+        🔗 <a href="https://sppims-dams.dsdilgp.qld.gov.au/spp/?tab=layers" target="_blank">Open SPP Mapping Tool</a>
+      </div>
+    </div>
+  </div>
+  <div id="searchBar">
+    <input id="lotplanSearch" type="text" placeholder="Search Lot/Plan e.g. 45SP164230" />
+    <button onclick="searchLotplan()">Search</button>
+  </div>
+
+  <script>
+    require([
+      "esri/Map",
+      "esri/views/MapView",
+      "esri/layers/FeatureLayer",
+      "esri/tasks/support/Query",
+      "esri/Graphic"
+    ], function(Map, MapView, FeatureLayer, Query, Graphic) {
+
+      const layerUrl = "https://uat-qportal.information.qld.gov.au/arcgis/rest/services/sirrte_idi_LEAP_ClaimParcels_vegtest/MapServer/1";
+
+      const leapLayer = new FeatureLayer({
+        url: layerUrl,
+        outFields: ["*"]
+      });
+
+      const map = new Map({
+        basemap: "satellite",
+        layers: [leapLayer]
+      });
+
+      const view = new MapView({
+        container: "viewDiv",
+        map: map,
+        center: [147, -21],
+        zoom: 6
+      });
+
+      view.ui.move("zoom", "top-right");
+
+      view.on("click", function(event) {
+        view.hitTest(event).then(function(response) {
+          const graphic = response.results.find(r => r.graphic.layer === leapLayer);
+          if (graphic) {
+            displayParcel(graphic.graphic.attributes);
+            highlightParcel(graphic.graphic.geometry);
+          }
+        });
+      });
+
+      function displayParcel(attrs) {
+        const valOrHint = (val, hint) => val ? val : `<span class='hint'>${hint}</span>`;
+
+        const html = `
+          <h2>📌 Parcel Overview</h2>
+          <table>
+            <tr><th>Lot/Plan</th><td>${valOrHint(attrs.lotplan, "No lotplan found")}</td></tr>
+            <tr><th>Title Reference</th><td>${valOrHint(attrs.title_ref, "Use QVAS to verify")}</td></tr>
+            <tr><th>Property Address</th><td>${valOrHint(attrs.prop_addr, "To be confirmed")}</td></tr>
+            <tr><th>Area (Ha)</th><td>${attrs.lot_area ? (attrs.lot_area / 10000).toFixed(2) : `<span class='hint'>No area found</span>`}</td></tr>
+            <tr><th>Locality</th><td>${valOrHint(attrs.locality, "Check DCDB")}</td></tr>
+            <tr><th>Shire</th><td>${valOrHint(attrs.shire_name, "Unknown")}</td></tr>
+            <tr><th>Tenure</th><td>${valOrHint(attrs.tenure, "No tenure info")}</td></tr>
+            <tr><th>Native Title Status</th><td>${valOrHint(attrs.nt_status, "Check Native Title Registrar")}</td></tr>
+          </table>
+
+          <h2>🧭 Access</h2>
+          <table>
+            <tr><th>Access Legal</th><td>${valOrHint(attrs.access_l, "Assessment needed")}</td></tr>
+            <tr><th>Access Physical</th><td>${valOrHint(attrs.access_p, "Assessment needed")}</td></tr>
+            <tr><th>Survey Required?</th><td>${valOrHint(attrs.surv_ind, "Check mapping team")}</td></tr>
+          </table>
+
+          <h2>💼 Admin Details</h2>
+          <table>
+            <tr><th>Valuation</th><td>${attrs.qvas_val ? "$" + attrs.qvas_val.toLocaleString() : `<span class='hint'>Check QVAS</span>`}</td></tr>
+            <tr><th>Registered Owner</th><td>${valOrHint(attrs.reg_owner, "Unregistered or Crown")}</td></tr>
+            <tr><th>Claim Name</th><td>${valOrHint(attrs.claim_n, "Check NNTT")}</td></tr>
+            <tr><th>Planning Scheme</th><td>${valOrHint(attrs.plan_schem, "Check with Council")}</td></tr>
+            <tr><th>Cultural Heritage Party</th><td>${valOrHint(attrs.cul_party, "Check CH database")}</td></tr>
+          </table>
+        `;
+
+        document.getElementById("parcelInfo").innerHTML = html;
+      }
+
+      function searchLotplan() {
+        const input = document.getElementById("lotplanSearch").value.trim();
+        if (!input) return;
+
+        const query = leapLayer.createQuery();
+        query.where = `lotplan = '${input}'`;
+        query.returnGeometry = true;
+        query.outFields = ["*"];
+
+        leapLayer.queryFeatures(query).then(function(result) {
+          if (result.features.length > 0) {
+            const feature = result.features[0];
+            displayParcel(feature.attributes);
+            view.goTo(feature.geometry.extent.expand(1.5));
+            highlightParcel(feature.geometry);
+          } else {
+            alert("Lot/Plan not found.");
+          }
+        });
+      }
+
+      let highlightGraphic = null;
+      function highlightParcel(geometry) {
+        if (highlightGraphic) {
+          view.graphics.remove(highlightGraphic);
+        }
+
+        highlightGraphic = new Graphic({
+          geometry: geometry,
+          symbol: {
+            type: "simple-fill",
+            color: [0, 0, 0, 0],
+            outline: {
+              color: "cyan",
+              width: 3
+            }
+          }
+        });
+
+        view.graphics.add(highlightGraphic);
+      }
+    });
+  </script>
+</body>
+</html>
