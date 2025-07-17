@@ -1,4 +1,3 @@
-<!-- Use full HTML contents from here -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -12,16 +11,17 @@
       margin: 0;
       padding: 0;
       height: 100%;
+      width: 100%;
       font-family: Arial, sans-serif;
-      background: #f8f9fa;
     }
     #app {
       display: flex;
       height: 100%;
+      width: 100%;
     }
     #viewDiv {
       flex: 1;
-      position: relative;
+      height: 100%;
     }
     #sidebar {
       width: 480px;
@@ -70,13 +70,8 @@
       color: #888;
       font-style: italic;
     }
-    .footer-links {
-      margin-top: 20px;
-      font-size: 0.9em;
-    }
-    .footer-links a {
+    a {
       color: #007bff;
-      text-decoration: none;
     }
   </style>
 </head>
@@ -87,9 +82,6 @@
       <h2>🗺️ Start Here</h2>
       <p>Select a parcel on the map or search a Lot/Plan to begin.</p>
       <div id="parcelInfo"></div>
-      <div class="footer-links">
-        🔗 <a href="https://sppims-dams.dsdilgp.qld.gov.au/spp/?tab=layers" target="_blank">Open SPP Mapping Tool</a>
-      </div>
     </div>
   </div>
   <div id="searchBar">
@@ -127,19 +119,20 @@
 
       view.ui.move("zoom", "top-right");
 
-      view.on("click", function(event) {
-        view.hitTest(event).then(function(response) {
-          const graphic = response.results.find(r => r.graphic.layer === leapLayer);
-          if (graphic) {
-            displayParcel(graphic.graphic.attributes);
-            highlightParcel(graphic.graphic.geometry);
-          }
+      view.when(() => {
+        view.on("click", function(event) {
+          view.hitTest(event).then(function(response) {
+            const graphic = response.results.find(r => r.graphic.layer === leapLayer);
+            if (graphic) {
+              displayParcel(graphic.graphic.attributes);
+              highlightParcel(graphic.graphic.geometry);
+            }
+          });
         });
       });
 
       function displayParcel(attrs) {
         const valOrHint = (val, hint) => val ? val : `<span class='hint'>${hint}</span>`;
-
         const html = `
           <h2>📌 Parcel Overview</h2>
           <table>
@@ -160,16 +153,13 @@
             <tr><th>Survey Required?</th><td>${valOrHint(attrs.surv_ind, "Check mapping team")}</td></tr>
           </table>
 
-          <h2>💼 Admin Details</h2>
+          <h2>🏢 Planning & SPP</h2>
           <table>
-            <tr><th>Valuation</th><td>${attrs.qvas_val ? "$" + attrs.qvas_val.toLocaleString() : `<span class='hint'>Check QVAS</span>`}</td></tr>
-            <tr><th>Registered Owner</th><td>${valOrHint(attrs.reg_owner, "Unregistered or Crown")}</td></tr>
-            <tr><th>Claim Name</th><td>${valOrHint(attrs.claim_n, "Check NNTT")}</td></tr>
             <tr><th>Planning Scheme</th><td>${valOrHint(attrs.plan_schem, "Check with Council")}</td></tr>
-            <tr><th>Cultural Heritage Party</th><td>${valOrHint(attrs.cul_party, "Check CH database")}</td></tr>
+            <tr><th>Regional Plan</th><td>${valOrHint(attrs.regional_plan, "Review regional overlay")}</td></tr>
+            <tr><th>SPP Layers</th><td><a href="https://sppims-dams.dsdilgp.qld.gov.au/spp/?tab=layers" target="_blank">Open SPP Mapping Tool</a></td></tr>
           </table>
         `;
-
         document.getElementById("parcelInfo").innerHTML = html;
       }
 
