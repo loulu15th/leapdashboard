@@ -117,187 +117,164 @@
   </div>
 
   <script src="https://js.arcgis.com/4.29/"></script>
-  <script>
-    require([
-      "esri/identity/OAuthInfo",
-      "esri/identity/IdentityManager",
-      "esri/config",
-      "esri/Map",
-      "esri/views/MapView",
-      "esri/layers/FeatureLayer",
-      "esri/layers/GraphicsLayer",
-      "esri/Graphic",
-      "esri/widgets/Zoom",
-      "esri/widgets/Search"
-    ], function(
-      OAuthInfo, esriId, esriConfig,
-      Map, MapView, FeatureLayer, GraphicsLayer, Graphic,
-      Zoom, Search
-    ) {
-      // --- AUTHENTICATION SETUP ---
-      esriConfig.portalUrl = "https://uat-qportal.information.qld.gov.au/arcgis";
-      const info = new OAuthInfo({
-        appId: "c8013faf85024dadb2d656683fddd1d6",         // ← register this in UAT portal
-        portalUrl: esriConfig.portalUrl,
-        popup: true
-      });
-      esriId.registerOAuthInfos([info]);
+<script>
+  require([
+    "esri/config",
+    "esri/Map",
+    "esri/views/MapView",
+    "esri/layers/FeatureLayer",
+    "esri/layers/GraphicsLayer",
+    "esri/Graphic",
+    "esri/widgets/Zoom",
+    "esri/widgets/Search"
+  ], function(
+    esriConfig, Map, MapView, FeatureLayer, GraphicsLayer, Graphic,
+    Zoom, Search
+  ) {
 
-      esriId.checkSignInStatus(esriConfig.portalUrl + "/sharing")
-        .catch(() => esriId.getCredential(esriConfig.portalUrl + "/sharing"))
-        .then(init)
-        .catch(console.error);
+    // 1) point at your UAT portal
+    esriConfig.portalUrl = "https://uat-qportal.information.qld.gov.au/arcgis";
 
-      function init() {
-        const CLAIM_URL = 
-          "https://uat-qportal.information.qld.gov.au/arcgis/rest/services/" +
-          "sirrte_idi_LEAP_ClaimParcels_vegtest/FeatureServer/1";
+    // 2) your feature layer endpoint
+    const CLAIM_URL = 
+      "https://uat-qportal.information.qld.gov.au/arcgis/rest/services/" +
+      "sirrte_idi_LEAP_ClaimParcels_vegtest/FeatureServer/1";
 
-        // --- MAP & VIEW ---
-        const map = new Map({ basemap: "satellite" });
-        const view = new MapView({
-          container: "viewDiv",
-          map,
-          center: [145, -25],
-          zoom: 6
-        });
-
-        // --- LAYERS ---
-        const claimLayer = new FeatureLayer({
-          url: CLAIM_URL,
-          outFields: ["*"],
-          popupEnabled: false
-        });
-        const highlightLayer = new GraphicsLayer();
-        map.addMany([claimLayer, highlightLayer]);
-
-        // --- WIDGETS ---
-        const zoomWidget = new Zoom({ view });
-        view.ui.add(zoomWidget, "top-left");
-
-        const searchWidget = new Search({
-          view,
-          allPlaceholder: "Search Lot/Plan e.g. 45SP164230",
-          includeDefaultSources: false,
-          sources: [{
-            layer: claimLayer,
-            searchFields: ["lotplan"],
-            displayField: "lotplan",
-            exactMatch: false,
-            outFields: ["*"],
-            name: "Lot/Plan"
-          }]
-        });
-        view.ui.add(searchWidget, "top-right");
-
-        // --- UI ELEMENTS ---
-        const startHint  = document.getElementById("startHint");
-        const formFields = document.getElementById("formFields");
-        const saveBtn    = document.getElementById("saveBtn");
-        const reportBtn  = document.getElementById("reportBtn");
-
-        let selectedFeature = null;
-
-        function clearSelection() {
-          highlightLayer.removeAll();
-          selectedFeature = null;
-          formFields.style.display = "none";
-          startHint.style.display   = "block";
-          saveBtn.disabled   = true;
-          reportBtn.disabled = true;
-        }
-
-        function showForm(feature) {
-          selectedFeature = feature;
-          const attrs = feature.attributes;
-
-          // Populate inputs/textareas by matching id→attribute
-          Object.keys(attrs).forEach(key => {
-            const node = document.getElementById(key);
-            if (!node) return;
-            let val = attrs[key];
-            if (key === "lot_area" && val != null) {
-              // m² → ha
-              val = (val / 10000).toFixed(2);
-            }
-            node.value = val == null ? "" : val;
-          });
-
-          startHint.style.display  = "none";
-          formFields.style.display = "block";
-          saveBtn.disabled   = false;
-          reportBtn.disabled = false;
-        }
-
-        function highlightAndZoom(feature) {
-          highlightLayer.removeAll();
-
-          const sym = {
-            type: "simple-fill",
-            color: [255,255,0,0.2],
-            outline: { color:"yellow", width:2 }
-          };
-          highlightLayer.add(new Graphic({
-            geometry: feature.geometry,
-            symbol: sym
-          }));
-
-          // zoom to a 2× expanded extent
-          const ext = feature.geometry.extent
-            ? feature.geometry.extent.expand(2)
-            : feature.geometry.getExtent().expand(2);
-
-          view.goTo(ext, { duration: 500 });
-        }
-
-        // --- SEARCH EVENT ---
-        searchWidget.on("select-result", evt => {
-          const f = evt.result.feature;
-          showForm(f);
-          highlightAndZoom(f);
-        });
-
-        // --- MAP CLICK DE‑SELECT ---
-        view.on("click", evt => {
-          view.hitTest(evt).then(hit => {
-            const onClaim = hit.results.some(r => r.graphic && r.graphic.layer === claimLayer);
-            if (!onClaim) {
-              clearSelection();
-            }
-          });
-        });
-
-        // --- SAVE & REPORT STUBS ---
-        saveBtn.onclick = () => {
-          const updates = [];
-          Object.keys(selectedFeature.attributes).forEach(key => {
-            const node = document.getElementById(key);
-            if (!node || node.disabled) return;
-            updates.push({
-              attributes: {
-                OBJECTID: selectedFeature.attributes.OBJECTID,
-                [key]: node.value
-              }
-            });
-          });
-          if (!updates.length) return;
-
-          claimLayer.applyEdits({ updateFeatures: updates })
-            .then(() => alert("Saved!"))
-            .catch(err => alert("Save failed: " + err.message));
-        };
-
-        reportBtn.onclick = () => {
-          alert("Report generation stub – wire up your PDF export here.");
-        };
-
-        // --- INIT ---
-        clearSelection();
-
-        // once layer loads, zoom to full Queensland extent
-        claimLayer.when(() => view.goTo(claimLayer.fullExtent));
-      }
+    // --- Map & View ---
+    const map = new Map({ basemap: "satellite" });
+    const view = new MapView({
+      container: "viewDiv",
+      map,
+      center: [145, -24],  // QLD centre
+      zoom: 6
     });
-  </script>
+
+    // --- Layers ---
+    const claimLayer = new FeatureLayer({
+      url: CLAIM_URL,
+      outFields: ["*"],
+      popupEnabled: false
+    });
+    const highlightLayer = new GraphicsLayer();
+    map.addMany([claimLayer, highlightLayer]);
+
+    // once layer loads, zoom to full QLD
+    claimLayer.when(() => view.goTo(claimLayer.fullExtent));
+
+    // --- Widgets ---
+    const zoomWidget = new Zoom({ view });
+    view.ui.add(zoomWidget, "top-left");
+
+    const searchWidget = new Search({
+      view,
+      allPlaceholder: "Search Lot/Plan e.g. 45SP164230",
+      includeDefaultSources: false,
+      sources: [{
+        layer: claimLayer,
+        searchFields: ["lotplan"],
+        displayField: "lotplan",
+        exactMatch: false,
+        outFields: ["*"],
+        name: "Lot/Plan"
+      }]
+    });
+    view.ui.add(searchWidget, "top-right");
+
+    // --- UI refs ---
+    const startHint  = document.getElementById("startHint");
+    const formFields = document.getElementById("formFields");
+    const saveBtn    = document.getElementById("saveBtn");
+    const reportBtn  = document.getElementById("reportBtn");
+
+    let selectedFeature = null;
+
+    function clearSelection() {
+      highlightLayer.removeAll();
+      selectedFeature = null;
+      formFields.style.display = "none";
+      startHint.style.display   = "block";
+      saveBtn.disabled   = true;
+      reportBtn.disabled = true;
+    }
+
+    function showForm(feature) {
+      selectedFeature = feature;
+      const attrs = feature.attributes;
+      Object.keys(attrs).forEach(key => {
+        const node = document.getElementById(key);
+        if (!node) return;
+        let v = attrs[key];
+        if (key === "lot_area" && v != null) {
+          v = (v/10000).toFixed(2);  // m² → ha
+        }
+        node.value = (v == null ? "" : v);
+      });
+      startHint.style.display  = "none";
+      formFields.style.display = "block";
+      saveBtn.disabled   = false;
+      reportBtn.disabled = false;
+    }
+
+    function highlightAndZoom(feature) {
+      highlightLayer.removeAll();
+      highlightLayer.add(new Graphic({
+        geometry: feature.geometry,
+        symbol: {
+          type: "simple-fill",
+          color: [255,255,0,0.3],
+          outline: { color: "yellow", width: 2 }
+        }
+      }));
+      // zoom to a moderate local scale (~ zoom 14)
+      view.goTo({ target: feature.geometry, zoom: 14 });
+    }
+
+    // Map click to select or clear
+    view.on("click", evt => {
+      view.hitTest(evt).then(r => {
+        const hit = r.results.find(res => res.graphic && res.graphic.layer === claimLayer);
+        if (hit) {
+          showForm(hit.graphic);
+          highlightAndZoom(hit.graphic);
+        } else {
+          clearSelection();
+        }
+      });
+    });
+
+    // Search → select + highlight
+    searchWidget.on("select-result", evt => {
+      const f = evt.result.feature;
+      showForm(f);
+      highlightAndZoom(f);
+    });
+
+    // Save edits (relies on your cookie auth)
+    saveBtn.onclick = () => {
+      if (!selectedFeature) return;
+      const attrs = { OBJECTID: selectedFeature.attributes.OBJECTID };
+      Object.keys(selectedFeature.attributes).forEach(k => {
+        const inp = document.getElementById(k);
+        if (inp && !inp.disabled) {
+          attrs[k] = inp.value;
+        }
+      });
+      claimLayer.applyEdits({ updateFeatures: [{ attributes: attrs }] })
+        .then(() => alert("✅ Saved"))
+        .catch(err => {
+          console.error(err);
+          alert("❌ Save failed: " + err.details?.layer?.message || err.message);
+        });
+    };
+
+    // Report stub
+    reportBtn.onclick = () => {
+      alert("🚧 Generate PDF report here");
+    };
+
+    // Init
+    clearSelection();
+  });
+</script>
 </body>
 </html>
