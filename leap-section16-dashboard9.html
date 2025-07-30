@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>LEAP Section 16 Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="https://js.arcgis.com/4.29/esri/themes/light/main.css" />
+  <style>
+    html, body, #container { margin:0; padding:0; height:100%; }
+    #container { display:flex; font-family:Arial,sans-serif; }
+    /* map takes remaining space while info pane is fixed 400px */
+    #mapPane  { flex:1; position:relative; }
+    #viewDiv   { width:100%; height:100%; }
+    #infoPane  { flex:0 0 400px; background:#f5f5f5; overflow-y:auto; padding:20px; box-sizing:border-box; }
+    h2 { color:#003087; margin-top:0; }
+    /* sub‑headings th normal weight */
+    .assessment-table th { font-weight:normal; padding:4px 8px; text-align:left; }
+    .assessment-table td { padding:4px 8px; }
+    .assessment-table input,
+    .assessment-table textarea { width:100%; box-sizing:border-box; }
+    .assessment-table textarea { resize:vertical; min-height:60px; }
+    .btn { background:#003087; color:white; border:none; padding:6px 12px; border-radius:4px; cursor:pointer; }
+    .btn:disabled { background:#aaa; cursor:not-allowed; }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <div id="mapPane">
+      <div id="viewDiv"></div>
+    </div>
+    <div id="infoPane">
+      <h2>Section 16 Assessment</h2>
+      <p id="startHint">Select a parcel on the map or search a Lot/Plan to begin.</p>
+      <div id="formFields" style="display:none;">
+        <!-- Parcel Details -->
+        <h3>Parcel Details</h3>
+        <table class="assessment-table">
+          <tr><th>Lot/Plan</th>                 <td><input id="lotplan"     disabled /></td></tr>
+          <tr><th>Lot</th>                      <td><input id="lot"         disabled /></td></tr>
+          <tr><th>Plan</th>                     <td><input id="plan"        disabled /></td></tr>
+          <tr><th>Survey Indicator</th>         <td><input id="surv_ind"    disabled /></td></tr>
+          <tr><th>Title Reference</th>          <td><input id="title_ref"           /></td></tr>
+          <tr><th>Property Address</th>         <td><input id="prop_addr"           /></td></tr>
+          <tr><th>Area (ha)</th>                <td><input id="lot_area_c"         /></td></tr>
+          <tr><th>Tenure</th>                   <td><input id="tenure"       disabled /></td></tr>
+          <tr><th>Registered Owner/Trustee</th> <td><input id="reg_owner"          /></td></tr>
+          <tr><th>Local Government Area</th>    <td><input id="shire_name"   disabled /></td></tr>
+        </table>
+
+        <!-- Administrative Attributes -->
+        <h3>Administrative Attributes</h3>
+        <table class="assessment-table">
+          <tr><th>Access (Legal)</th>       <td><input id="access_l"        /></td></tr>
+          <tr><th>Access (Practical)</th>   <td><input id="access_p"        /></td></tr>
+          <tr><th>Registered Interests</th> <td><textarea id="ciram_chk"></textarea></td></tr>
+          <tr><th>Current Valuation</th>    <td><input id="qvas_val"        /></td></tr>
+          <tr><th>eLVAS Cases</th>          <td><textarea id="elvas_ref"></textarea></td></tr>
+        </table>
+
+        <!-- Site History -->
+        <h3>Site History & Background</h3>
+        <table class="assessment-table">
+          <tr><th>Native Title Status</th>      <td><input id="nt_status"    /></td></tr>
+          <tr><th>Indigenous Cult Heritage</th> <td><input id="ind_cul_he"   /></td></tr>
+          <tr><th>Qld Cult Heritage</th>        <td><input id="qld_cul_he"   /></td></tr>
+          <tr><th>Historical Tenure</th>        <td><textarea id="ten_hist"></textarea></td></tr>
+        </table>
+
+        <!-- Physical, Biological & Economic -->
+        <h3>Physical, Biological & Economic</h3>
+        <table class="assessment-table">
+          <tr><th>Parcel Type</th>         <td><input id="parcel_typ"     /></td></tr>
+          <tr><th>Cover Type</th>          <td><input id="cover_typ"      /></td></tr>
+          <tr><th>Plan Constraints</th>    <td><textarea id="plan_const"></textarea></td></tr>
+          <tr><th>MAUT Use</th>            <td><input id="mau"            /></td></tr>
+          <tr><th>Past Material</th>       <td><input id="p_mat"          /></td></tr>
+          <tr><th>Mining Interest</th>     <td><input id="mine_int"       /></td></tr>
+          <tr><th>EPM App/Grant</th>       <td>
+            <input id="epm_app" /><br/>
+            <input id="epm_granted" placeholder="Granted" />
+          </td></tr>
+          <tr><th>ML Permit App/Grant</th> <td>
+            <input id="ml_permit_app" /><br/>
+            <input id="ml_granted" placeholder="Granted" />
+          </td></tr>
+          <tr><th>Exploration Permit</th>  <td><input id="appln_int"       /></td></tr>
+        </table>
+
+        <!-- Environment & Planning -->
+        <h3>Environment & Planning</h3>
+        <table class="assessment-table">
+          <tr><th>Contaminated Land</th>    <td><input id="contam_lan"     /></td></tr>
+          <tr><th>Stock Route</th>          <td><input id="stk_route"      /></td></tr>
+          <tr><th>State Plan Policy</th>    <td><input id="plan_schem"     /></td></tr>
+          <tr><th>Regional Plan</th>        <td><input id="regional_plan"  /></td></tr>
+          <tr><th>Flood Hazard</th>         <td><input id="flooding"       /></td></tr>
+          <tr><th>Bushfire Hazard</th>      <td><input id="bushfire"       /></td></tr>
+          <tr><th>Coastal Management</th>   <td><input id="coastal_mgmt"   /></td></tr>
+          <tr><th>Veg Mgmt Categories</th>  <td><input id="veg_mgmt_cat"   /></td></tr>
+          <tr><th>Veg Mgmt Reg Ecos</th>    <td><input id="veg_mgmt_reg_eco"/></td></tr>
+        </table>
+
+        <!-- Social & Cultural -->
+        <h3>Social & Cultural Attributes</h3>
+        <table class="assessment-table">
+          <tr><th>Heritage Mgmt Plan</th>   <td><input id="cul_mgmt_plan" /></td></tr>
+          <tr><th>Study Area Bdy</th>       <td><textarea id="cul_studyarea_bdy"></textarea></td></tr>
+          <tr><th>Party</th>                <td><input id="cul_party"      /></td></tr>
+        </table>
+
+        <div style="margin-top:16px; text-align:right;">
+          <button id="saveBtn" class="btn" disabled>💾 Save</button>
+          <button id="reportBtn" class="btn" disabled>📄 Generate Report</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://js.arcgis.com/4.29/"></script>
+  <script>
+    require([
+      "esri/identity/OAuthInfo",
+      "esri/identity/IdentityManager",
+      "esri/config",
+      "esri/Map",
+      "esri/views/MapView",
+      "esri/layers/FeatureLayer",
+      "esri/layers/GraphicsLayer",
+      "esri/Graphic",
+      "esri/widgets/Zoom",
+      "esri/widgets/Search"
+    ], function(
+      OAuthInfo, esriId, esriConfig,
+      Map, MapView, FeatureLayer, GraphicsLayer, Graphic,
+      Zoom, Search
+    ) {
+      // --- AUTHENTICATION SETUP ---
+      esriConfig.portalUrl = "https://uat-qportal.information.qld.gov.au/arcgis";
+      const info = new OAuthInfo({
+        appId: "c8013faf85024dadb2d656683fddd1d6",         // ← register this in UAT portal
+        portalUrl: esriConfig.portalUrl,
+        popup: true
+      });
+      esriId.registerOAuthInfos([info]);
+
+      esriId.checkSignInStatus(esriConfig.portalUrl + "/sharing")
+        .catch(() => esriId.getCredential(esriConfig.portalUrl + "/sharing"))
+        .then(init)
+        .catch(console.error);
+
+      function init() {
+        const CLAIM_URL = 
+          "https://uat-qportal.information.qld.gov.au/arcgis/rest/services/" +
+          "sirrte_idi_LEAP_ClaimParcels_vegtest/FeatureServer/1";
+
+        // --- MAP & VIEW ---
+        const map = new Map({ basemap: "satellite" });
+        const view = new MapView({
+          container: "viewDiv",
+          map,
+          center: [145, -25],
+          zoom: 6
+        });
+
+        // --- LAYERS ---
+        const claimLayer = new FeatureLayer({
+          url: CLAIM_URL,
+          outFields: ["*"],
+          popupEnabled: false
+        });
+        const highlightLayer = new GraphicsLayer();
+        map.addMany([claimLayer, highlightLayer]);
+
+        // --- WIDGETS ---
+        const zoomWidget = new Zoom({ view });
+        view.ui.add(zoomWidget, "top-left");
+
+        const searchWidget = new Search({
+          view,
+          allPlaceholder: "Search Lot/Plan e.g. 45SP164230",
+          includeDefaultSources: false,
+          sources: [{
+            layer: claimLayer,
+            searchFields: ["lotplan"],
+            displayField: "lotplan",
+            exactMatch: false,
+            outFields: ["*"],
+            name: "Lot/Plan"
+          }]
+        });
+        view.ui.add(searchWidget, "top-right");
+
+        // --- UI ELEMENTS ---
+        const startHint  = document.getElementById("startHint");
+        const formFields = document.getElementById("formFields");
+        const saveBtn    = document.getElementById("saveBtn");
+        const reportBtn  = document.getElementById("reportBtn");
+
+        let selectedFeature = null;
+
+        function clearSelection() {
+          highlightLayer.removeAll();
+          selectedFeature = null;
+          formFields.style.display = "none";
+          startHint.style.display   = "block";
+          saveBtn.disabled   = true;
+          reportBtn.disabled = true;
+        }
+
+        function showForm(feature) {
+          selectedFeature = feature;
+          const attrs = feature.attributes;
+
+          // Populate inputs/textareas by matching id→attribute
+          Object.keys(attrs).forEach(key => {
+            const node = document.getElementById(key);
+            if (!node) return;
+            let val = attrs[key];
+            if (key === "lot_area" && val != null) {
+              // m² → ha
+              val = (val / 10000).toFixed(2);
+            }
+            node.value = val == null ? "" : val;
+          });
+
+          startHint.style.display  = "none";
+          formFields.style.display = "block";
+          saveBtn.disabled   = false;
+          reportBtn.disabled = false;
+        }
+
+        function highlightAndZoom(feature) {
+          highlightLayer.removeAll();
+
+          const sym = {
+            type: "simple-fill",
+            color: [255,255,0,0.2],
+            outline: { color:"yellow", width:2 }
+          };
+          highlightLayer.add(new Graphic({
+            geometry: feature.geometry,
+            symbol: sym
+          }));
+
+          // zoom to a 2× expanded extent
+          const ext = feature.geometry.extent
+            ? feature.geometry.extent.expand(2)
+            : feature.geometry.getExtent().expand(2);
+
+          view.goTo(ext, { duration: 500 });
+        }
+
+        // --- SEARCH EVENT ---
+        searchWidget.on("select-result", evt => {
+          const f = evt.result.feature;
+          showForm(f);
+          highlightAndZoom(f);
+        });
+
+        // --- MAP CLICK DE‑SELECT ---
+        view.on("click", evt => {
+          view.hitTest(evt).then(hit => {
+            const onClaim = hit.results.some(r => r.graphic && r.graphic.layer === claimLayer);
+            if (!onClaim) {
+              clearSelection();
+            }
+          });
+        });
+
+        // --- SAVE & REPORT STUBS ---
+        saveBtn.onclick = () => {
+          const updates = [];
+          Object.keys(selectedFeature.attributes).forEach(key => {
+            const node = document.getElementById(key);
+            if (!node || node.disabled) return;
+            updates.push({
+              attributes: {
+                OBJECTID: selectedFeature.attributes.OBJECTID,
+                [key]: node.value
+              }
+            });
+          });
+          if (!updates.length) return;
+
+          claimLayer.applyEdits({ updateFeatures: updates })
+            .then(() => alert("Saved!"))
+            .catch(err => alert("Save failed: " + err.message));
+        };
+
+        reportBtn.onclick = () => {
+          alert("Report generation stub – wire up your PDF export here.");
+        };
+
+        // --- INIT ---
+        clearSelection();
+
+        // once layer loads, zoom to full Queensland extent
+        claimLayer.when(() => view.goTo(claimLayer.fullExtent));
+      }
+    });
+  </script>
+</body>
+</html>
