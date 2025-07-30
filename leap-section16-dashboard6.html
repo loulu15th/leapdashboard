@@ -6,26 +6,28 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="https://js.arcgis.com/4.29/esri/themes/light/main.css" />
   <style>
-    html, body { margin:0; padding:0; height:100%; font-family:Arial,sans-serif; }
-    #container { display:flex; height:100%; }
+    html, body { margin:0; padding:0; height:100%; }
+    #container { display:flex; height:100%; font-family:Arial,sans-serif; }
     #mapPane { position:relative; flex:1; }
     #viewDiv { width:100%; height:100%; }
     #searchBox {
-      position:absolute; top:10px; left:10px;
-      background:white; padding:8px; border-radius:4px;
-      box-shadow:0 1px 4px rgba(0,0,0,0.3); z-index:99;
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      left: auto;
+      background: white;
+      padding: 8px;
+      border-radius: 4px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+      z-index: 99;
     }
     #searchBox input { width:160px; padding:4px; }
-    #infoPane {
-      width:380px; background:#f5f5f5; overflow-y:auto;
-      padding:20px; box-sizing:border-box;
-    }
+    #infoPane { width:380px; background:#f5f5f5; overflow-y:auto; padding:20px; box-sizing:border-box; }
     h2 { margin-top:0; color:#003087; }
     .field-row { margin-bottom:12px; }
     .field-row label { display:block; font-weight:bold; margin-bottom:4px; }
     .field-row input, .field-row textarea {
-      width:100%; padding:6px; box-sizing:border-box;
-      border:1px solid #ccc; border-radius:4px;
+      width:100%; padding:6px; box-sizing:border-box; border:1px solid #ccc; border-radius:4px;
     }
     .field-row textarea { resize:vertical; height:60px; }
     .btn {
@@ -49,24 +51,7 @@
       <h2>Section 16 Assessment</h2>
       <p id="startHint">Select a parcel on the map or search a Lot/Plan to begin.</p>
       <div id="formFields" style="display:none;">
-        <!-- Parcel Details -->
-        <h3>Parcel Details</h3>
-        <div class="field-row"><label>Lot/Plan</label><input id="f_lotplan" readonly /></div>
-        <div class="field-row"><label>Title Reference</label><input id="f_title_ref" /></div>
-        <div class="field-row"><label>Address</label><input id="f_prop_addr" /></div>
-        <div class="field-row"><label>Area (ha)</label><input id="f_lot_area_c" /></div>
-        <div class="field-row"><label>Tenure</label><input id="f_tenure" readonly /></div>
-        <div class="field-row"><label>Trustee</label><input id="f_reg_owner" /></div>
-        <div class="field-row"><label>LGA</label><input id="f_shire_name" readonly /></div>
-
-        <!-- Administrative Attributes -->
-        <h3>Administrative Attributes</h3>
-        <div class="field-row"><label>Access</label><input id="f_access_l" /></div>
-        <div class="field-row"><label>Survey Req'd</label><input id="f_surv_ind" /></div>
-        <div class="field-row"><label>Registered Interests</label><textarea id="f_elvas_ref"></textarea></div>
-        <div class="field-row"><label>Valuation</label><input id="f_qvas_val" placeholder="Use QVAS" /></div>
-
-        <!-- Save & Report -->
+        <!-- ... your fields here ... -->
         <div style="margin-top:20px;">
           <button id="saveBtn" class="btn" disabled>Save</button>
           <button id="reportBtn" class="btn" disabled>Generate Report</button>
@@ -83,10 +68,10 @@
       "esri/layers/FeatureLayer",
       "esri/layers/GraphicsLayer",
       "esri/Graphic",
-      "esri/rest/support/Query"       // <-- **moved** here
+      "esri/rest/support/Query"
     ], function(Map, MapView, FeatureLayer, GraphicsLayer, Graphic, Query) {
 
-      const CLAIM_URL = "https://uat-qportal.information.qld.gov.au/arcgis/rest/services/.../MapServer/1";
+      const CLAIM_URL = "https://uat-qportal.information.qld.gov.au/arcgis/rest/services/sirrte_idi_LEAP_ClaimParcels_vegtest/MapServer/1";
 
       const map = new Map({ basemap: "satellite" });
       const view = new MapView({
@@ -97,29 +82,15 @@
       });
 
       const claimLayer = new FeatureLayer({ url: CLAIM_URL, outFields: ["*"] });
-      map.add(claimLayer);
-
       const highlightLayer = new GraphicsLayer();
-      map.add(highlightLayer);
+      map.addMany([claimLayer, highlightLayer]);
 
-      // DOM refs
-      const startHint = document.getElementById("startHint");
-      const formFields = document.getElementById("formFields");
-      const saveBtn    = document.getElementById("saveBtn");
-      const reportBtn  = document.getElementById("reportBtn");
-      const inputs = {
-        lotplan:   document.getElementById("f_lotplan"),
-        title_ref: document.getElementById("f_title_ref"),
-        prop_addr: document.getElementById("f_prop_addr"),
-        lot_area_c:document.getElementById("f_lot_area_c"),
-        tenure:    document.getElementById("f_tenure"),
-        reg_owner: document.getElementById("f_reg_owner"),
-        shire_name:document.getElementById("f_shire_name"),
-        access_l:  document.getElementById("f_access_l"),
-        surv_ind:  document.getElementById("f_surv_ind"),
-        elvas_ref: document.getElementById("f_elvas_ref"),
-        qvas_val:  document.getElementById("f_qvas_val")
-      };
+      // DOM Elements
+      const startHint   = document.getElementById("startHint");
+      const formFields  = document.getElementById("formFields");
+      const saveBtn     = document.getElementById("saveBtn");
+      const reportBtn   = document.getElementById("reportBtn");
+      const lotplanIn   = document.getElementById("lotplanInput");
 
       let selectedFeature = null;
 
@@ -127,51 +98,39 @@
         highlightLayer.removeAll();
         selectedFeature = null;
         formFields.style.display = "none";
-        startHint.style.display = "block";
+        startHint.style.display  = "block";
         saveBtn.disabled = reportBtn.disabled = true;
       }
 
       function showForm(feature) {
         selectedFeature = feature;
-        const A = feature.attributes;
-        // populate
-        inputs.lotplan.value   = A.lotplan || "";
-        inputs.title_ref.value = A.title_ref || "";
-        inputs.prop_addr.value = A.prop_addr || "";
-        inputs.lot_area_c.value = A.lot_area_c!=null
-          ? (A.lot_area_c/10000).toFixed(2) : "";
-        inputs.tenure.value    = A.tenure || "";
-        inputs.reg_owner.value = A.reg_owner || "";
-        inputs.shire_name.value= A.shire_name || "";
-        inputs.access_l.value  = A.access_l || "";
-        inputs.surv_ind.value  = A.surv_ind || "";
-        inputs.elvas_ref.value = A.elvas_ref || "";
-        inputs.qvas_val.value  = A.qvas_val!=null ? A.qvas_val : "";
-
-        startHint.style.display = "none";
+        // TODO: populate your inputs from feature.attributes
+        startHint.style.display  = "none";
         formFields.style.display = "block";
         saveBtn.disabled = reportBtn.disabled = false;
       }
 
       function highlightAndZoom(feature) {
         highlightLayer.removeAll();
-        const sym = claimLayer.renderer.getSymbol();
-        const hSym = sym.clone();
-        hSym.outline = { color:[255,0,0], width:2 };
-        highlightLayer.add(new Graphic({ geometry: feature.geometry, symbol: hSym }));
+        const symbol = claimLayer.renderer.getSymbol().clone();
+        symbol.outline = { color:[255,0,0], width:2 };
+        highlightLayer.add(new Graphic({ geometry: feature.geometry, symbol }));
         view.goTo(feature.geometry.extent.expand(1.2));
       }
 
       function queryByLotplan(code) {
-        const q = new Query({ where:`UPPER(lotplan)='${code.toUpperCase()}'`,
-          returnGeometry:true, outFields:["*"] });
+        const q = new Query({
+          where: `UPPER(lotplan)='${code.toUpperCase()}'`,
+          returnGeometry: true,
+          outFields: ["*"]
+        });
         return claimLayer.queryFeatures(q);
       }
 
-      // map click
+      // Map click
       view.on("click", evt => {
         view.hitTest(evt).then(res => {
-          const hit = res.results.find(r=>r.graphic.layer===claimLayer);
+          const hit = res.results.find(r => r.graphic.layer === claimLayer);
           if (hit) {
             showForm(hit.graphic);
             highlightAndZoom(hit.graphic);
@@ -181,15 +140,14 @@
         });
       });
 
-      // search click
+      // Search click
       document.getElementById("searchBtn").addEventListener("click", () => {
-        const txt = document.getElementById("lotplanInput").value.trim();
+        const txt = lotplanIn.value.trim();
         if (!txt) return;
         queryByLotplan(txt).then(res => {
           if (res.features.length) {
-            const f = res.features[0];
-            showForm(f);
-            highlightAndZoom(f);
+            showForm(res.features[0]);
+            highlightAndZoom(res.features[0]);
           } else {
             clearSelection();
             alert("No parcel found.");
@@ -197,11 +155,10 @@
         });
       });
 
-      // stubs
-      saveBtn.onclick   = ()=>alert("Save pressed – implement applyEdits()");
-      reportBtn.onclick = ()=>alert("Generate Report pressed – assemble PDF");
+      // stubs for later
+      saveBtn.onclick   = () => alert("Save → applyEdits()");
+      reportBtn.onclick = () => alert("Report → generate PDF");
 
-      // start clean
       clearSelection();
     });
   </script>
