@@ -1,210 +1,238 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>LEAP Dashboard</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="stylesheet" href="https://js.arcgis.com/4.29/esri/themes/light/main.css" />
-  <script src="https://js.arcgis.com/4.29/"></script>
+  <meta charset="UTF-8">
+  <title>LEAP Section 16 Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- ArcGIS CSS -->
+  <link rel="stylesheet" href="https://js.arcgis.com/4.29/esri/themes/light/main.css">
   <style>
-    html, body, #viewDiv {
-      height: 100%;
-      margin: 0;
-      padding: 0;
-      font-family: Arial;
-    }
-
-    #mainLayout {
-      display: flex;
-      height: 100%;
-    }
-
-    #viewDiv {
-      flex: 2;
-    }
-
-    #panel {
-      flex: 1;
-      padding: 10px;
-      overflow-y: auto;
-      border-left: 1px solid #ccc;
-      display: none;
-      background: #fff;
-    }
-
-    #searchContainer {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      background: white;
-      padding: 10px;
+    html, body { margin:0; padding:0; height:100%; font-family: Arial, sans-serif; }
+    #container { display: flex; height:100%; }
+    #mapPane { position:relative; flex:1; }
+    #viewDiv { width:100%; height:100%; }
+    /* Search box */
+    #searchBox {
+      position:absolute; top:10px; left:10px;
+      background:white; padding:6px; border-radius:4px;
+      box-shadow:0 1px 4px rgba(0,0,0,0.3);
       z-index: 99;
-      box-shadow: 0 0 5px #ccc;
-      border-radius: 4px;
     }
-
-    input {
-      padding: 5px;
-      width: 180px;
+    #searchBox input { width:200px; padding:4px; }
+    /* Right pane */
+    #infoPane {
+      width:400px; max-width:40%;
+      overflow-y:auto; background:#f5f5f5;
+      padding:20px; box-sizing:border-box;
     }
-
-    button {
-      margin-top: 10px;
-      padding: 10px;
+    h2 { margin-top:0; color:#003087; }
+    .field-row { margin-bottom:12px; }
+    .field-row label { display:block; font-weight:bold; margin-bottom:4px; }
+    .field-row input[type=text],
+    .field-row textarea {
+      width:100%; padding:6px; box-sizing:border-box;
+      border:1px solid #ccc; border-radius:4px;
     }
-
-    label {
-      font-weight: bold;
-    }
-
-    .field-group {
-      margin-bottom: 10px;
-    }
+    .field-row textarea { resize:vertical; height:60px; }
+    .btn { background:#003087; color:white; border:none;
+      padding:8px 16px; margin-right:8px; border-radius:4px;
+      cursor:pointer; }
+    .btn:disabled { background:#aaa; cursor:not-allowed; }
   </style>
 </head>
 <body>
-<div id="mainLayout">
-  <div id="viewDiv"></div>
-  <div id="panel">
-    <h3>Parcel Info</h3>
-    <div id="formFields"></div>
-    <button id="saveBtn">Save</button>
-    <button id="reportBtn">Generate Report</button>
-    <div id="msg"></div>
+  <div id="container">
+    <div id="mapPane">
+      <div id="viewDiv"></div>
+      <div id="searchBox">
+        <label for="lotplanInput">Search Lot/Plan:</label>
+        <input id="lotplanInput" placeholder="e.g. 45SP164230">
+        <button id="searchBtn" class="btn">Search</button>
+      </div>
+    </div>
+    <div id="infoPane">
+      <h2>Section 16 Assessment</h2>
+      <p id="startHint">Select a parcel on the map or search a Lot/Plan to begin.</p>
+      <div id="formFields" style="display:none;">
+        <!-- Parcel Details -->
+        <h3>Parcel Details</h3>
+        <div class="field-row"><label>Lot/Plan</label><input id="f_lotplan" type="text" readonly></div>
+        <div class="field-row"><label>Title Reference</label><input id="f_title_ref" type="text"></div>
+        <div class="field-row"><label>Property Address</label><input id="f_prop_addr" type="text"></div>
+        <div class="field-row"><label>Area (ha)</label><input id="f_lot_area_c" type="text"></div>
+        <div class="field-row"><label>Tenure</label><input id="f_tenure" type="text" readonly></div>
+        <div class="field-row"><label>Trustee</label><input id="f_reg_owner" type="text"></div>
+        <div class="field-row"><label>LGA</label><input id="f_shire_name" type="text" readonly></div>
+
+        <!-- Administrative Attributes -->
+        <h3>Administrative Attributes</h3>
+        <div class="field-row"><label>Access</label><input id="f_access_l" type="text"></div>
+        <div class="field-row"><label>Survey Req'd</label><input id="f_surv_ind" type="text"></div>
+        <div class="field-row"><label>Registered Interests</label><textarea id="f_elvas_ref"></textarea></div>
+        <div class="field-row"><label>Valuation</label><input id="f_qvas_val" type="text" placeholder="Use QVAS"></div>
+
+        <!-- You can continue adding the rest of your fields here in the same pattern… -->
+
+        <div style="margin-top:20px;">
+          <button id="saveBtn" class="btn" disabled>Save</button>
+          <button id="reportBtn" class="btn" disabled>Generate Report</button>
+        </div>
+      </div>
+    </div>
   </div>
-</div>
 
-<div id="searchContainer">
-  <label for="lotplanInput">Search LotPlan:</label>
-  <input id="lotplanInput" list="suggestions" placeholder="e.g. 45SP164230" />
-  <datalist id="suggestions"></datalist>
-</div>
+  <!-- ArcGIS JS API -->
+  <script src="https://js.arcgis.com/4.29/"></script>
+  <script>
+    require([
+      "esri/Map",
+      "esri/views/MapView",
+      "esri/layers/FeatureLayer",
+      "esri/Graphic",
+      "esri/layers/GraphicsLayer",
+      "esri/tasks/support/Query"
+    ], function(Map, MapView, FeatureLayer, Graphic, GraphicsLayer, Query) {
 
-<script>
-require([
-  "esri/Map", "esri/views/MapView", "esri/layers/FeatureLayer", "esri/Graphic", "esri/tasks/support/Query"
-], (Map, MapView, FeatureLayer, Graphic, Query) => {
-  const layer = new FeatureLayer({
-    url: "https://services8.arcgis.com/N9pWXvW1bA4UHL2O/arcgis/rest/services/ClaimParcels_vegtest/FeatureServer/1",
-    outFields: ["*"],
-    popupEnabled: false
-  });
+      const CLAIM_URL = "https://uat-qportal.information.qld.gov.au/arcgis/rest/services/…/MapServer/1";
 
-  const map = new Map({
-    basemap: "satellite",
-    layers: [layer]
-  });
+      // Base map & view
+      const map = new Map({ basemap: "satellite" });
+      const view = new MapView({
+        container: "viewDiv",
+        map: map,
+        center: [152.7, -27.4],
+        zoom: 6
+      });
 
-  const view = new MapView({
-    container: "viewDiv",
-    map: map,
-    center: [148, -23],
-    zoom: 6
-  });
+      // Claim parcels
+      const claimLayer = new FeatureLayer({ url: CLAIM_URL, outFields: ["*"] });
+      map.add(claimLayer);
 
-  let selected = null;
+      // Highlight graphics layer
+      const highlightLayer = new GraphicsLayer();
+      map.add(highlightLayer);
 
-  // Fill datalist
-  layer.queryFeatures({
-    where: "1=1",
-    outFields: ["lotplan"],
-    returnDistinctValues: true,
-    returnGeometry: false
-  }).then(res => {
-    const datalist = document.getElementById("suggestions");
-    const lotplans = [...new Set(res.features.map(f => f.attributes.lotplan))];
-    lotplans.forEach(lp => {
-      if (lp) {
-        const opt = document.createElement("option");
-        opt.value = lp;
-        datalist.appendChild(opt);
+      // Form elements
+      const form = document.getElementById("formFields");
+      const hint = document.getElementById("startHint");
+      const saveBtn = document.getElementById("saveBtn");
+      const reportBtn = document.getElementById("reportBtn");
+
+      // Input fields
+      const inputs = {
+        lotplan:     document.getElementById("f_lotplan"),
+        title_ref:   document.getElementById("f_title_ref"),
+        prop_addr:   document.getElementById("f_prop_addr"),
+        lot_area_c:  document.getElementById("f_lot_area_c"),
+        tenure:      document.getElementById("f_tenure"),
+        reg_owner:   document.getElementById("f_reg_owner"),
+        shire_name:  document.getElementById("f_shire_name"),
+        access_l:    document.getElementById("f_access_l"),
+        surv_ind:    document.getElementById("f_surv_ind"),
+        elvas_ref:   document.getElementById("f_elvas_ref"),
+        qvas_val:    document.getElementById("f_qvas_val")
+        // …add more here…
+      };
+
+      let selectedFeature = null;
+
+      // Utility: show/hide form
+      function showForm(feature) {
+        selectedFeature = feature;
+        hint.style.display = "none";
+        form.style.display = "block";
+        saveBtn.disabled = false;
+        reportBtn.disabled = false;
+
+        const attr = feature.attributes;
+        inputs.lotplan.value    = attr.lotplan || "";
+        inputs.title_ref.value  = attr.title_ref || "";
+        inputs.prop_addr.value  = attr.prop_addr || "";
+        inputs.lot_area_c.value = attr.lot_area_c != null ? (attr.lot_area_c / 10000).toFixed(2) : "";
+        inputs.tenure.value     = attr.tenure || "";
+        inputs.reg_owner.value  = attr.reg_owner || "";
+        inputs.shire_name.value = attr.shire_name || "";
+        inputs.access_l.value   = attr.access_l || "";
+        inputs.surv_ind.value   = attr.surv_ind || "";
+        inputs.elvas_ref.value  = attr.elvas_ref || "";
+        inputs.qvas_val.value   = attr.qvas_val != null ? attr.qvas_val : "";
       }
-    });
-  });
 
-  // Search by LotPlan
-  document.getElementById("lotplanInput").addEventListener("change", e => {
-    const input = e.target.value.trim().toUpperCase();
-    if (!input) return;
-    const q = layer.createQuery();
-    q.where = `UPPER(lotplan) = '${input}'`;
-    q.returnGeometry = true;
-    q.outFields = ["*"];
-    layer.queryFeatures(q).then(res => {
-      if (res.features.length) {
-        const feat = res.features[0];
-        showForm(feat);
-        zoomHighlight(feat);
+      function clearSelection() {
+        selectedFeature = null;
+        highlightLayer.removeAll();
+        form.style.display = "none";
+        hint.style.display = "block";
+        saveBtn.disabled = true;
+        reportBtn.disabled = true;
       }
-    });
-  });
 
-  // Map click
-  view.on("click", evt => {
-    view.hitTest(evt).then(resp => {
-      const feat = resp.results.find(r => r.graphic.layer === layer)?.graphic;
-      if (feat) {
-        showForm(feat);
-        zoomHighlight(feat);
-      } else {
-        selected = null;
-        document.getElementById("panel").style.display = "none";
-        view.graphics.removeAll();
+      // Highlight + zoom
+      function highlightAndZoom(feature) {
+        highlightLayer.removeAll();
+        const sym = claimLayer.renderer.getSymbol({ size: 0 });
+        const highlightSym = sym.clone();
+        highlightSym.outline = { color: [255,0,0], width:2 };
+        const graphic = new Graphic({
+          geometry: feature.geometry,
+          symbol: highlightSym
+        });
+        highlightLayer.add(graphic);
+        view.goTo({ target: feature.geometry, extent: feature.geometry.extent.expand(1.2) });
       }
-    });
-  });
 
-  function zoomHighlight(f) {
-    view.graphics.removeAll();
-    const g = new Graphic({
-      geometry: f.geometry,
-      symbol: {
-        type: "simple-fill",
-        color: [0, 0, 0, 0],
-        outline: { color: "yellow", width: 2 }
+      // Query by lotplan
+      function queryByLotplan(lp) {
+        const q = new Query();
+        q.where = `UPPER(lotplan)='${lp.toUpperCase()}'`;
+        q.returnGeometry = true;
+        q.outFields = ["*"];
+        return claimLayer.queryFeatures(q);
       }
-    });
-    view.graphics.add(g);
-    view.goTo(f.geometry.extent.expand(2));
-  }
 
-  function showForm(f) {
-    selected = f;
-    const container = document.getElementById("formFields");
-    container.innerHTML = "";
-    const editable = ["title_ref", "prop_addr", "tenure", "access_l", "access_p"];
-    editable.forEach(field => {
-      const div = document.createElement("div");
-      div.className = "field-group";
-      const lbl = document.createElement("label");
-      lbl.innerText = field;
-      const input = document.createElement("input");
-      input.value = f.attributes[field] || "";
-      input.id = field;
-      div.appendChild(lbl);
-      div.appendChild(input);
-      container.appendChild(div);
-    });
-    document.getElementById("panel").style.display = "block";
-  }
+      // Map click handler
+      view.on("click", evt => {
+        view.hitTest(evt).then(res => {
+          const gr = res.results.find(r => r.graphic && r.graphic.layer === claimLayer);
+          if (gr) {
+            showForm(gr.graphic);
+            highlightAndZoom(gr.graphic);
+          } else {
+            clearSelection();
+          }
+        });
+      });
 
-  document.getElementById("saveBtn").addEventListener("click", () => {
-    if (!selected) return;
-    const attrs = selected.attributes;
-    ["title_ref", "prop_addr", "tenure", "access_l", "access_p"].forEach(id => {
-      attrs[id] = document.getElementById(id).value;
-    });
-    const updated = new Graphic({ geometry: selected.geometry, attributes: attrs });
-    layer.applyEdits({ updateFeatures: [updated] }).then(() => {
-      document.getElementById("msg").innerText = "✅ Saved!";
-      setTimeout(() => document.getElementById("msg").innerText = "", 1500);
-    });
-  });
+      // Search button click
+      document.getElementById("searchBtn").onclick = () => {
+        const lp = document.getElementById("lotplanInput").value.trim();
+        if (!lp) return;
+        queryByLotplan(lp).then(res => {
+          if (res.features.length) {
+            const feat = res.features[0];
+            showForm(feat);
+            highlightAndZoom(feat);
+          } else {
+            clearSelection();
+            alert("No parcel found with that Lot/Plan.");
+          }
+        });
+      };
 
-  document.getElementById("reportBtn").addEventListener("click", () => {
-    alert("📝 Report generation coming soon.");
-  });
-});
-</script>
+      // Save (stub)
+      saveBtn.onclick = () => {
+        // collect edits into an applyEdits() if your service supports it
+        alert("Save clicked – implement applyEdits here.");
+      };
+
+      // Generate report (stub)
+      reportBtn.onclick = () => {
+        alert("Generate Report clicked – assemble your template and open modal/pdf.");
+      };
+
+      // initial state
+      clearSelection();
+    });
+  </script>
 </body>
 </html>
