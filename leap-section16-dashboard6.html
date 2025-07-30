@@ -1,195 +1,232 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <title>LEAP Section 16 Dashboard</title>
-  <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
-  <link rel="stylesheet" href="https://js.arcgis.com/4.28/esri/themes/light/main.css">
+  <meta charset="UTF-8" />
+  <title>LEAP Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="https://js.arcgis.com/4.29/esri/themes/light/main.css" />
+  <script src="https://js.arcgis.com/4.29/"></script>
   <style>
-    body { margin:0; font-family:Arial,sans-serif; background:#f5f5f5; }
-    .header { background:linear-gradient(135deg,#003087,#0066cc); color:#fff; padding:15px; text-align:center; }
-    .header h1 { margin:0; font-size:1.8em; }
-    .main { display:grid; grid-template-columns:1fr 1.1fr; height:calc(100vh - 56px); }
-    #mapView { width:100%; height:100%; }
-    .panel { background:#fff; overflow-y:auto; padding:15px; box-shadow:-2px 0 5px rgba(0,0,0,0.1); }
-    #searchBar { display:flex; gap:8px; margin-bottom:12px; }
-    #searchBar input { flex:1; padding:6px; border:1px solid #ccc; border-radius:4px; }
-    #searchBar button { padding:6px 12px; background:#003087; color:#fff; border:none; border-radius:4px; cursor:pointer; }
-    #searchBar button:hover { background:#005bb5; }
-    .section-title { margin:20px 0 8px; font-size:1.1em; color:#003087; border-bottom:2px solid #e9ecef; padding-bottom:4px; }
-    table { width:100%; border-collapse:collapse; margin-bottom:15px; }
-    th,td { padding:8px; border:1px solid #ddd; vertical-align:top; }
-    th { width:35%; background:#f0f0f0; text-align:left; }
-    .readonly { background:#f9f9f9; }
-    .editable { background:#fff; border:1px dashed #ccc; padding:4px; border-radius:4px; min-height:18px; }
-    .editable:focus { outline:none; border-color:#003087; background:#f0f8ff; }
-    .btn { padding:8px 14px; margin-right:8px; background:#003087; color:#fff; border:none; border-radius:4px; cursor:pointer; }
-    .btn:hover { background:#005bb5; }
-    .hint { font-size:0.85em; color:#856404; margin-top:4px; }
+    html, body, #viewDiv {
+      padding: 0;
+      margin: 0;
+      height: 100%;
+      font-family: Arial, sans-serif;
+    }
+
+    #mainLayout {
+      display: flex;
+      height: 100%;
+    }
+
+    #viewDiv {
+      flex: 2;
+    }
+
+    #formPanel {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1em;
+      border-left: 1px solid #ccc;
+      display: none;
+    }
+
+    .input-block {
+      margin-bottom: 12px;
+    }
+
+    .input-block label {
+      display: block;
+      font-weight: bold;
+      margin-bottom: 4px;
+    }
+
+    .input-block input, .input-block textarea {
+      width: 100%;
+      padding: 6px;
+    }
+
+    #searchBox {
+      position: absolute;
+      top: 15px;
+      left: 15px;
+      z-index: 99;
+      background: white;
+      padding: 10px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      border-radius: 5px;
+    }
+
+    #saveButton, #generateReportButton {
+      margin-top: 12px;
+      padding: 10px;
+      width: 100%;
+      cursor: pointer;
+    }
+
+    #message {
+      color: green;
+      font-weight: bold;
+    }
   </style>
-  <script src="https://js.arcgis.com/4.28/"></script>
 </head>
 <body>
-  <div class="header"><h1>🏛️ LEAP Section 16 Dashboard</h1></div>
-  <div class="main">
-    <div id="mapView"></div>
-    <div class="panel">
-      <div id="searchBar">
-        <input id="lotInput" type="text" placeholder="Enter Lot/Plan (e.g. 45 on SP164230)" />
-        <button id="btnSearch">Search</button>
-      </div>
-      <div id="parcelSummary"><em>Select a parcel via click or search above</em></div>
-      <div id="formArea"></div>
-      <div style="text-align:center; margin:20px 0;">
-        <button id="btnSave" class="btn">💾 Save</button>
-        <button id="btnReport" class="btn">📄 Generate Report</button>
-      </div>
+  <div id="mainLayout">
+    <div id="viewDiv"></div>
+    <div id="formPanel">
+      <h3>Parcel Information</h3>
+      <form id="attributesForm"></form>
+      <button id="saveButton">Save</button>
+      <button id="generateReportButton">Generate Report</button>
+      <p id="message"></p>
     </div>
   </div>
+  <div id="searchBox">
+    <label for="lotplanInput"><strong>Search LotPlan:</strong></label>
+    <input type="text" id="lotplanInput" list="lotplanSuggestions" placeholder="e.g. 45SP164230" />
+    <datalist id="lotplanSuggestions"></datalist>
+  </div>
 
-<script>
-require([
-  "esri/Map","esri/views/MapView",
-  "esri/layers/FeatureLayer",
-  "esri/identity/IdentityManager"
-], function(Map, MapView, FeatureLayer, IdentityManager) {
+  <script>
+    require([
+      "esri/Map",
+      "esri/views/MapView",
+      "esri/layers/FeatureLayer",
+      "esri/Graphic",
+      "esri/tasks/support/Query"
+    ], (Map, MapView, FeatureLayer, Graphic, Query) => {
+      const uatLayerUrl = "https://services8.arcgis.com/N9pWXvW1bA4UHL2O/arcgis/rest/services/ClaimParcels_vegtest/FeatureServer/1";
 
-  const LEAP_SERVICE = "https://uat‑qportal.information.qld.gov.au/.../ClaimParcels_vegtest/1";
-  let view, parcelsLayer, layerView, highlightHandle, currentGraphic;
+      const layer = new FeatureLayer({
+        url: uatLayerUrl,
+        outFields: ["*"]
+      });
 
-  // get credential if needed
-  IdentityManager.getCredential(LEAP_SERVICE)
-    .then(cred => init(cred.token))
-    .catch(() => init());
+      const map = new Map({
+        basemap: "streets-vector",
+        layers: [layer]
+      });
 
-  function init(token) {
-    view = new MapView({
-      container: "mapView",
-      map: new Map({ basemap: "satellite" }),
-      center: [152.7, -27.3],
-      zoom: 8
-    });
+      const view = new MapView({
+        container: "viewDiv",
+        map: map,
+        center: [148, -23], // QLD center
+        zoom: 6
+      });
 
-    parcelsLayer = new FeatureLayer({
-      url: LEAP_SERVICE,
-      outFields: ["*"],
-      customParameters: token ? { token } : null
-    });
-    view.map.add(parcelsLayer);
+      let selectedFeature = null;
 
-    // store layerView for highlight() and editingEnabled check
-    view.whenLayerView(parcelsLayer).then(lv => layerView = lv);
+      // Autocomplete setup
+      layer.queryFeatures({ where: "1=1", outFields: ["lotplan"], returnDistinctValues: true, returnGeometry: false })
+        .then(result => {
+          const list = document.getElementById("lotplanSuggestions");
+          const lotplans = [...new Set(result.features.map(f => f.attributes.lotplan))];
+          lotplans.forEach(lp => {
+            if (lp) {
+              const option = document.createElement("option");
+              option.value = lp;
+              list.appendChild(option);
+            }
+          });
+        });
 
-    // map‑click: select or deselect
-    view.on("click", e => {
-      view.hitTest(e).then(res => {
-        const hit = res.results.find(r => r.graphic.layer === parcelsLayer);
-        if (hit) {
-          selectParcel(hit.graphic);
-        } else {
-          clearSelection();
-        }
+      document.getElementById("lotplanInput").addEventListener("change", (e) => {
+        const input = e.target.value.trim().toUpperCase();
+        if (!input) return;
+
+        const query = layer.createQuery();
+        query.where = `UPPER(lotplan) = '${input}'`;
+        query.returnGeometry = true;
+        query.outFields = ["*"];
+
+        layer.queryFeatures(query).then(result => {
+          if (result.features.length > 0) {
+            const feature = result.features[0];
+            view.goTo(feature.geometry.extent.expand(2));
+            showAttributes(feature);
+            highlightFeature(feature);
+          }
+        });
+      });
+
+      view.on("click", (event) => {
+        view.hitTest(event).then(response => {
+          const graphic = response.results.find(r => r.graphic.layer === layer)?.graphic;
+          if (graphic) {
+            showAttributes(graphic);
+            highlightFeature(graphic);
+          } else {
+            selectedFeature = null;
+            document.getElementById("formPanel").style.display = "none";
+          }
+        });
+      });
+
+      function highlightFeature(feature) {
+        view.graphics.removeAll();
+        const highlight = new Graphic({
+          geometry: feature.geometry,
+          symbol: {
+            type: "simple-fill",
+            color: [0, 0, 0, 0],
+            outline: { color: "cyan", width: 3 }
+          }
+        });
+        view.graphics.add(highlight);
+      }
+
+      function showAttributes(feature) {
+        selectedFeature = feature;
+        const form = document.getElementById("attributesForm");
+        form.innerHTML = "";
+
+        const fieldsToShow = ["lotplan", "claim_n", "access_l", "access_p", "shire_name", "tenure", "prop_addr", "title_ref", "qvas_val"];
+        fieldsToShow.forEach(field => {
+          const block = document.createElement("div");
+          block.className = "input-block";
+
+          const label = document.createElement("label");
+          label.innerText = field;
+          const input = document.createElement("input");
+          input.value = feature.attributes[field] || "";
+          input.id = field;
+          input.dataset.field = field;
+
+          block.appendChild(label);
+          block.appendChild(input);
+          form.appendChild(block);
+        });
+
+        document.getElementById("formPanel").style.display = "block";
+      }
+
+      document.getElementById("saveButton").addEventListener("click", () => {
+        if (!selectedFeature) return;
+
+        const updates = { ...selectedFeature.attributes };
+        const inputs = document.querySelectorAll("#attributesForm input");
+        inputs.forEach(input => {
+          updates[input.dataset.field] = input.value;
+        });
+
+        const updatedGraphic = new Graphic({
+          geometry: selectedFeature.geometry,
+          attributes: updates
+        });
+
+        layer.applyEdits({ updateFeatures: [updatedGraphic] }).then(response => {
+          document.getElementById("message").innerText = "✅ Saved successfully!";
+          setTimeout(() => document.getElementById("message").innerText = "", 2000);
+        }).catch(err => {
+          console.error(err);
+          document.getElementById("message").innerText = "❌ Failed to save.";
+        });
+      });
+
+      document.getElementById("generateReportButton").addEventListener("click", () => {
+        alert("Report generation will be implemented later.");
       });
     });
-
-    // wire up your external search box
-    document.getElementById("btnSearch").onclick = doSearch;
-    document.getElementById("lotInput").addEventListener("keyup", ev => {
-      if (ev.key === "Enter") doSearch();
-    });
-
-    // hide buttons until parcel selected
-    toggleButtons(false);
-    document.getElementById("btnSave").onclick = saveEdits;
-    document.getElementById("btnReport").onclick = () => alert("Report stub");
-  }
-
-  function doSearch() {
-    const txt = document.getElementById("lotInput").value.trim();
-    if (!txt) return alert("Type a Lot/Plan");
-    // case‑insensitive query
-    const where = `UPPER(lotplan) = '${txt.toUpperCase().replace(/'/g,"''")}'`;
-    parcelsLayer.queryFeatures({ where, outFields:["*"], returnGeometry:true })
-      .then(res => {
-        if (res.features.length) selectParcel(res.features[0]);
-        else alert("No parcel found");
-      })
-      .catch(err => console.error(err));
-  }
-
-  function selectParcel(graphic) {
-    currentGraphic = graphic;
-    const a = graphic.attributes;
-
-    // highlight
-    if (highlightHandle) highlightHandle.remove();
-    highlightHandle = layerView.highlight(graphic);
-
-    // zoom
-    view.goTo(graphic.geometry.extent.expand(1.2));
-
-    // render summary & form
-    document.getElementById("parcelSummary").innerHTML =
-      `<h3>📍 ${a.lotplan}</h3>
-       <p><strong>Owner:</strong> ${a.claim_n||"N/A"}</p>
-       <p><strong>Area:</strong> ${a.lot_area?/10000+" ha":"N/A"}</p>`;
-
-    buildForm(a);
-    toggleButtons(true);
-  }
-
-  function clearSelection() {
-    currentGraphic = null;
-    if (highlightHandle) highlightHandle.remove();
-    document.getElementById("parcelSummary").innerHTML =
-      `<em>Select a parcel via click or search</em>`;
-    document.getElementById("formArea").innerHTML = "";
-    toggleButtons(false);
-  }
-
-  function toggleButtons(show) {
-    const disp = show ? "inline‑block" : "none";
-    document.getElementById("btnSave").style.display = disp;
-    document.getElementById("btnReport").style.display = disp;
-  }
-
-  function buildForm(attrs) {
-    // same mkCell helper as before…
-    const mkCell = (fld, editable, placeholder="", hint="") => {
-      const val = attrs[fld]||"";
-      if (!editable) return `<td class="readonly">${val}</td>`;
-      return `<td>
-        <div class="editable" contenteditable="true" data-field="${fld}"
-             placeholder="${placeholder}">${val}</div>
-        ${hint?`<div class="hint">${hint}</div>`:""}
-      </td>`;
-    };
-
-    let html = "";
-    html += `<div class="section-title">📋 Parcel Details</div>
-      <table>
-        <tr><th>Lot/Plan:</th>${mkCell("lotplan",false)}</tr>
-        <!-- … other fields … -->
-      </table>`;
-    // build other sections…
-    document.getElementById("formArea").innerHTML = html;
-  }
-
-  function saveEdits() {
-    if (!currentGraphic) return;
-    if (!layerView.editingEnabled) {
-      return alert("❌ Layer is not editable on the server. Ask your admin to enable edits.");
-    }
-    const updates = { attributes: { objectid: currentGraphic.attributes.objectid }};
-    document.querySelectorAll(".editable").forEach(el => {
-      updates.attributes[el.dataset.field] = el.innerText.trim();
-    });
-    parcelsLayer.applyEdits({ update:[updates.attributes] })
-      .then(() => alert("✅ Saved"))
-      .catch(err => alert("❌ Save failed: " + err.message));
-  }
-
-});
-</script>
+  </script>
 </body>
 </html>
