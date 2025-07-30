@@ -8,10 +8,10 @@
   <script src="https://js.arcgis.com/4.29/"></script>
   <style>
     html, body, #viewDiv {
-      padding: 0;
-      margin: 0;
       height: 100%;
-      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      font-family: Arial;
     }
 
     #mainLayout {
@@ -23,210 +23,188 @@
       flex: 2;
     }
 
-    #formPanel {
+    #panel {
       flex: 1;
+      padding: 10px;
       overflow-y: auto;
-      padding: 1em;
       border-left: 1px solid #ccc;
       display: none;
+      background: #fff;
     }
 
-    .input-block {
-      margin-bottom: 12px;
-    }
-
-    .input-block label {
-      display: block;
-      font-weight: bold;
-      margin-bottom: 4px;
-    }
-
-    .input-block input, .input-block textarea {
-      width: 100%;
-      padding: 6px;
-    }
-
-    #searchBox {
+    #searchContainer {
       position: absolute;
-      top: 15px;
-      left: 15px;
-      z-index: 99;
+      top: 10px;
+      left: 10px;
       background: white;
       padding: 10px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-      border-radius: 5px;
+      z-index: 99;
+      box-shadow: 0 0 5px #ccc;
+      border-radius: 4px;
     }
 
-    #saveButton, #generateReportButton {
-      margin-top: 12px;
+    input {
+      padding: 5px;
+      width: 180px;
+    }
+
+    button {
+      margin-top: 10px;
       padding: 10px;
-      width: 100%;
-      cursor: pointer;
     }
 
-    #message {
-      color: green;
+    label {
       font-weight: bold;
+    }
+
+    .field-group {
+      margin-bottom: 10px;
     }
   </style>
 </head>
 <body>
-  <div id="mainLayout">
-    <div id="viewDiv"></div>
-    <div id="formPanel">
-      <h3>Parcel Information</h3>
-      <form id="attributesForm"></form>
-      <button id="saveButton">Save</button>
-      <button id="generateReportButton">Generate Report</button>
-      <p id="message"></p>
-    </div>
+<div id="mainLayout">
+  <div id="viewDiv"></div>
+  <div id="panel">
+    <h3>Parcel Info</h3>
+    <div id="formFields"></div>
+    <button id="saveBtn">Save</button>
+    <button id="reportBtn">Generate Report</button>
+    <div id="msg"></div>
   </div>
-  <div id="searchBox">
-    <label for="lotplanInput"><strong>Search LotPlan:</strong></label>
-    <input type="text" id="lotplanInput" list="lotplanSuggestions" placeholder="e.g. 45SP164230" />
-    <datalist id="lotplanSuggestions"></datalist>
-  </div>
+</div>
 
-  <script>
-    require([
-      "esri/Map",
-      "esri/views/MapView",
-      "esri/layers/FeatureLayer",
-      "esri/Graphic",
-      "esri/tasks/support/Query"
-    ], (Map, MapView, FeatureLayer, Graphic, Query) => {
-      const uatLayerUrl = "https://services8.arcgis.com/N9pWXvW1bA4UHL2O/arcgis/rest/services/ClaimParcels_vegtest/FeatureServer/1";
+<div id="searchContainer">
+  <label for="lotplanInput">Search LotPlan:</label>
+  <input id="lotplanInput" list="suggestions" placeholder="e.g. 45SP164230" />
+  <datalist id="suggestions"></datalist>
+</div>
 
-      const layer = new FeatureLayer({
-        url: uatLayerUrl,
-        outFields: ["*"]
-      });
+<script>
+require([
+  "esri/Map", "esri/views/MapView", "esri/layers/FeatureLayer", "esri/Graphic", "esri/tasks/support/Query"
+], (Map, MapView, FeatureLayer, Graphic, Query) => {
+  const layer = new FeatureLayer({
+    url: "https://services8.arcgis.com/N9pWXvW1bA4UHL2O/arcgis/rest/services/ClaimParcels_vegtest/FeatureServer/1",
+    outFields: ["*"],
+    popupEnabled: false
+  });
 
-      const map = new Map({
-        basemap: "streets-vector",
-        layers: [layer]
-      });
+  const map = new Map({
+    basemap: "satellite",
+    layers: [layer]
+  });
 
-      const view = new MapView({
-        container: "viewDiv",
-        map: map,
-        center: [148, -23], // QLD center
-        zoom: 6
-      });
+  const view = new MapView({
+    container: "viewDiv",
+    map: map,
+    center: [148, -23],
+    zoom: 6
+  });
 
-      let selectedFeature = null;
+  let selected = null;
 
-      // Autocomplete setup
-      layer.queryFeatures({ where: "1=1", outFields: ["lotplan"], returnDistinctValues: true, returnGeometry: false })
-        .then(result => {
-          const list = document.getElementById("lotplanSuggestions");
-          const lotplans = [...new Set(result.features.map(f => f.attributes.lotplan))];
-          lotplans.forEach(lp => {
-            if (lp) {
-              const option = document.createElement("option");
-              option.value = lp;
-              list.appendChild(option);
-            }
-          });
-        });
-
-      document.getElementById("lotplanInput").addEventListener("change", (e) => {
-        const input = e.target.value.trim().toUpperCase();
-        if (!input) return;
-
-        const query = layer.createQuery();
-        query.where = `UPPER(lotplan) = '${input}'`;
-        query.returnGeometry = true;
-        query.outFields = ["*"];
-
-        layer.queryFeatures(query).then(result => {
-          if (result.features.length > 0) {
-            const feature = result.features[0];
-            view.goTo(feature.geometry.extent.expand(2));
-            showAttributes(feature);
-            highlightFeature(feature);
-          }
-        });
-      });
-
-      view.on("click", (event) => {
-        view.hitTest(event).then(response => {
-          const graphic = response.results.find(r => r.graphic.layer === layer)?.graphic;
-          if (graphic) {
-            showAttributes(graphic);
-            highlightFeature(graphic);
-          } else {
-            selectedFeature = null;
-            document.getElementById("formPanel").style.display = "none";
-          }
-        });
-      });
-
-      function highlightFeature(feature) {
-        view.graphics.removeAll();
-        const highlight = new Graphic({
-          geometry: feature.geometry,
-          symbol: {
-            type: "simple-fill",
-            color: [0, 0, 0, 0],
-            outline: { color: "cyan", width: 3 }
-          }
-        });
-        view.graphics.add(highlight);
+  // Fill datalist
+  layer.queryFeatures({
+    where: "1=1",
+    outFields: ["lotplan"],
+    returnDistinctValues: true,
+    returnGeometry: false
+  }).then(res => {
+    const datalist = document.getElementById("suggestions");
+    const lotplans = [...new Set(res.features.map(f => f.attributes.lotplan))];
+    lotplans.forEach(lp => {
+      if (lp) {
+        const opt = document.createElement("option");
+        opt.value = lp;
+        datalist.appendChild(opt);
       }
-
-      function showAttributes(feature) {
-        selectedFeature = feature;
-        const form = document.getElementById("attributesForm");
-        form.innerHTML = "";
-
-        const fieldsToShow = ["lotplan", "claim_n", "access_l", "access_p", "shire_name", "tenure", "prop_addr", "title_ref", "qvas_val"];
-        fieldsToShow.forEach(field => {
-          const block = document.createElement("div");
-          block.className = "input-block";
-
-          const label = document.createElement("label");
-          label.innerText = field;
-          const input = document.createElement("input");
-          input.value = feature.attributes[field] || "";
-          input.id = field;
-          input.dataset.field = field;
-
-          block.appendChild(label);
-          block.appendChild(input);
-          form.appendChild(block);
-        });
-
-        document.getElementById("formPanel").style.display = "block";
-      }
-
-      document.getElementById("saveButton").addEventListener("click", () => {
-        if (!selectedFeature) return;
-
-        const updates = { ...selectedFeature.attributes };
-        const inputs = document.querySelectorAll("#attributesForm input");
-        inputs.forEach(input => {
-          updates[input.dataset.field] = input.value;
-        });
-
-        const updatedGraphic = new Graphic({
-          geometry: selectedFeature.geometry,
-          attributes: updates
-        });
-
-        layer.applyEdits({ updateFeatures: [updatedGraphic] }).then(response => {
-          document.getElementById("message").innerText = "✅ Saved successfully!";
-          setTimeout(() => document.getElementById("message").innerText = "", 2000);
-        }).catch(err => {
-          console.error(err);
-          document.getElementById("message").innerText = "❌ Failed to save.";
-        });
-      });
-
-      document.getElementById("generateReportButton").addEventListener("click", () => {
-        alert("Report generation will be implemented later.");
-      });
     });
-  </script>
+  });
+
+  // Search by LotPlan
+  document.getElementById("lotplanInput").addEventListener("change", e => {
+    const input = e.target.value.trim().toUpperCase();
+    if (!input) return;
+    const q = layer.createQuery();
+    q.where = `UPPER(lotplan) = '${input}'`;
+    q.returnGeometry = true;
+    q.outFields = ["*"];
+    layer.queryFeatures(q).then(res => {
+      if (res.features.length) {
+        const feat = res.features[0];
+        showForm(feat);
+        zoomHighlight(feat);
+      }
+    });
+  });
+
+  // Map click
+  view.on("click", evt => {
+    view.hitTest(evt).then(resp => {
+      const feat = resp.results.find(r => r.graphic.layer === layer)?.graphic;
+      if (feat) {
+        showForm(feat);
+        zoomHighlight(feat);
+      } else {
+        selected = null;
+        document.getElementById("panel").style.display = "none";
+        view.graphics.removeAll();
+      }
+    });
+  });
+
+  function zoomHighlight(f) {
+    view.graphics.removeAll();
+    const g = new Graphic({
+      geometry: f.geometry,
+      symbol: {
+        type: "simple-fill",
+        color: [0, 0, 0, 0],
+        outline: { color: "yellow", width: 2 }
+      }
+    });
+    view.graphics.add(g);
+    view.goTo(f.geometry.extent.expand(2));
+  }
+
+  function showForm(f) {
+    selected = f;
+    const container = document.getElementById("formFields");
+    container.innerHTML = "";
+    const editable = ["title_ref", "prop_addr", "tenure", "access_l", "access_p"];
+    editable.forEach(field => {
+      const div = document.createElement("div");
+      div.className = "field-group";
+      const lbl = document.createElement("label");
+      lbl.innerText = field;
+      const input = document.createElement("input");
+      input.value = f.attributes[field] || "";
+      input.id = field;
+      div.appendChild(lbl);
+      div.appendChild(input);
+      container.appendChild(div);
+    });
+    document.getElementById("panel").style.display = "block";
+  }
+
+  document.getElementById("saveBtn").addEventListener("click", () => {
+    if (!selected) return;
+    const attrs = selected.attributes;
+    ["title_ref", "prop_addr", "tenure", "access_l", "access_p"].forEach(id => {
+      attrs[id] = document.getElementById(id).value;
+    });
+    const updated = new Graphic({ geometry: selected.geometry, attributes: attrs });
+    layer.applyEdits({ updateFeatures: [updated] }).then(() => {
+      document.getElementById("msg").innerText = "✅ Saved!";
+      setTimeout(() => document.getElementById("msg").innerText = "", 1500);
+    });
+  });
+
+  document.getElementById("reportBtn").addEventListener("click", () => {
+    alert("📝 Report generation coming soon.");
+  });
+});
+</script>
 </body>
 </html>
