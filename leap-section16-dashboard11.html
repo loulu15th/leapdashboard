@@ -1,413 +1,545 @@
-<script src="https://js.arcgis.com/4.29/"></script>
-<script>
-require([
-  "esri/Map","esri/views/MapView","esri/layers/FeatureLayer","esri/layers/GraphicsLayer",
-  "esri/Graphic","esri/widgets/Zoom","esri/widgets/Search"
-], function(Map, MapView, FeatureLayer, GraphicsLayer, Graphic, Zoom, Search) {
-
-  // ----------------- Config -----------------
-  const BASE = "https://uat-qportal.information.qld.gov.au/arcgis/rest/services/LEAP_ClaimParcels_rbt/FeatureServer";
-  const PARCEL_URL = BASE + "/0";
-
-  // ----------------- DOM -----------------
-  const svcWarn   = document.getElementById("svcWarn");
-  const startHint = document.getElementById("startHint");
-  const form      = document.getElementById("formFields");
-  const saveBtn   = document.getElementById("saveBtn");
-  const reportBtn = document.getElementById("reportBtn");
-  const openNotes = document.getElementById("openNotes");
-  const openAttach= document.getElementById("openAttach");
-  const closeRelated = document.getElementById("closeRelated");
-  const toggleWide   = document.getElementById("toggleWide");
-  const tabsEl    = document.getElementById("tabs");
-  const relatedContent = document.getElementById("relatedContent");
-  const relatedActions = document.getElementById("relatedActions");
-  const badgeNotes  = document.getElementById("badgeNotes");
-  const badgeAttach = document.getElementById("badgeAttach");
-
-  const NOTE_FIELDS = [
-    "plan_schem","regional_plan","qld_cul_he","nt_status","ten_hist",
-    "plan_const","cul_mgmt_plan","cul_studyarea_bdy"
-  ];
-
-  // ----------------- Map FIRST (always) -----------------
-  const map = new Map({ basemap: "satellite" });
-  const view = new MapView({ container: "viewDiv", map, zoom: 6, center: [145, -24] });
-  view.popup.autoOpenEnabled = false;
-  const resizeView = ()=> view && view.resize();
-
-  view.when(()=>{
-    view.ui.remove("zoom");
-    view.ui.add(new Zoom({ view }), "top-left");
-  });
-
-  // add Search immediately; add Lot/Plan source after parcel layer loads
-  const search = new Search({ view, includeDefaultSources: true, allPlaceholder: "Search address or Lot/Plan" });
-  view.ui.add(search, "top-right");
-
-  const highlightLayer = new GraphicsLayer();
-  map.add(highlightLayer);
-
-  // ----------------- Try to load service (safe) -----------------
-  let parcelFL = null, relRegistry = {}, parcelFields = {}, activeTab = null, selected = null, noteScopeField = null, attachDomain = [];
-
-  (async function init(){
-    parcelFL = await safeLoadFL(PARCEL_URL);
-    if (!parcelFL){
-      // keep the map working; show banner
-      if (svcWarn) svcWarn.style.display = "block";
-      return;
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>LEAP Section 16 Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="https://js.arcgis.com/4.29/esri/themes/light/main.css" />
+  <style>
+    :root{
+      --info-width: 380px;
+      --related-width: 360px;
+      --related-wide: 46vw;
     }
-    if (svcWarn) svcWarn.style.display = "none";
-    map.add(parcelFL);
-    parcelFields = indexFields(parcelFL.fields);
-    try{ await view.goTo(parcelFL.fullExtent); }catch{}
+    html, body, #container { margin:0; padding:0; height:100%; }
+    #container { display:flex; font-family:Arial,sans-serif; }
 
-    // Lot/Plan as a Search source
-    search.sources.add({
-      layer: parcelFL,
-      searchFields:["lotplan"],
-      displayField:"lotplan",
-      name:"Claim Parcels",
-      placeholder:"e.g. 45SP164230",
-      outFields:["*"]
-    });
+    /* Map */
+    #mapPane { position:relative; flex:1; min-width:360px; }
+    #viewDiv { position:absolute; inset:0; }
+    #svcWarn{
+      position:absolute; top:10px; left:10px; z-index:5;
+      background:#fff4d6; border:1px solid #f0c36d; border-radius:6px;
+      padding:6px 10px; font-size:.9em; display:none;
+    }
 
-    // Build related tabs dynamically
-    await buildRelatedRegistry();
+    /* Assessment panel (your original) */
+    #infoPane {
+      width:var(--info-width);
+      background:#f5f5f5;
+      overflow-y:auto;
+      padding:20px;
+      box-sizing:border-box;
+      border-left:1px solid #e8e8e8;
+    }
+    #infoPane h2 { margin-top:0; color:#003087; }
+    #infoPane h3 {
+      margin:16px 0 8px;
+      font-size:1.1em;
+      font-weight:normal;
+      color:#003087;
+      display:flex; align-items:center; gap:8px;
+    }
+    .assessment-table { width:100%; border-collapse:collapse; }
+    .assessment-table th { text-align:left; padding:4px 8px; vertical-align:top; font-weight:normal; width:34%; }
+    .assessment-table td { padding:4px 8px; vertical-align:top; }
+    .assessment-table input, .assessment-table textarea {
+      width:100%; box-sizing:border-box;
+      padding:6px 8px; font-size:0.95em; border:1px solid #ccc; border-radius:4px; background:#fff;
+    }
+    .assessment-table textarea { resize:vertical; min-height:60px; }
+    .btn { background:#003087; color:#fff; border:none; padding:6px 12px; border-radius:4px; cursor:pointer; }
+    .btn:disabled { background:#aaa; cursor:not-allowed; }
+    .pill { border:1px solid #c9c9c9; background:#fff; border-radius:999px; padding:3px 10px; font-size:.9em; cursor:pointer; }
+    .badge { display:inline-block; min-width:18px; height:18px; line-height:18px; text-align:center; font-size:.75em; border-radius:9px; background:#eee; border:1px solid #bbb; margin-left:6px; }
 
-    // interactions
-    view.on("click", hitSelect);
-    search.on("select-result", (e)=> e.result?.feature && onSelect(e.result.feature));
+    /* Related drawer (new DOM that your script expects) */
+    #relatedPane{
+      width:var(--related-width); max-width:100vw;
+      background:#fff; border-left:1px solid #e8e8e8;
+      display:none; padding:12px; box-sizing:border-box; overflow:auto;
+    }
+    .open-related #relatedPane{ display:block; }
+    .wide-related #relatedPane{ width:var(--related-wide); }
 
-    // add the tiny 📝 buttons
-    installFieldNoteButtons();
-  })();
+    #relatedHead{ display:flex; align-items:center; justify-content:space-between; gap:6px; }
+    .tabs{ display:flex; gap:8px; margin:10px 0 12px; flex-wrap:wrap; }
+    .tab{ padding:6px 10px; border:1px solid #c9c9c9; border-radius:999px; background:#f8f8f8; cursor:pointer; display:inline-flex; align-items:center; gap:6px; }
+    .tab.active{ background:#fff; border-color:#888; }
+    .list{ display:flex; flex-direction:column; gap:10px; }
+    .card{ border:1px solid #eee; border-radius:8px; padding:10px; }
+    .grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .grid .col{ border:1px solid #eee; border-radius:8px; padding:10px; }
+    .grid .col h4{ margin:0 0 8px; font-size:1em; color:#003087; }
+    .mini-note{ margin-left:6px; font-size:.85em; padding:1px 8px; border:1px solid #c9c9c9; border-radius:999px; cursor:pointer; background:#fff; }
+    .mini-note:hover{ background:#f2f6ff; border-color:#7aa2ff; }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <div id="mapPane">
+      <div id="svcWarn">Service not reachable yet. Map is usable; related data will appear when it loads.</div>
+      <div id="viewDiv"></div>
+    </div>
 
-  async function safeLoadFL(url){
-    const fl = new FeatureLayer({ url, outFields:["*"] });
-    try{ await fl.load(); return fl; }
-    catch(e){ console.warn("Failed to load:", url, e); return null; }
-  }
-  function indexFields(fields){ const m={}; fields.forEach(f=> m[f.name]={alias:f.alias||f.name,type:f.type}); return m; }
+    <div id="infoPane">
+      <h2>Section 16 Assessment</h2>
+      <p id="startHint">Select a parcel on the map or search a Lot/Plan to begin.</p>
 
-  async function buildRelatedRegistry(){
-    relRegistry = {};
-    const rels = parcelFL.relationships || [];
-    for (const rel of rels){
-      const url = BASE + "/" + rel.relatedTableId;
-      const tbl = await safeLoadFL(url);
-      if (!tbl) continue;
-      const title = (tbl.title || tbl.name || `Related ${rel.id}`).trim();
-      const low = title.toLowerCase();
-      const key = low.includes("attach") ? "attachments" : low.includes("note") ? "notes" : `rel_${rel.id}`;
-      relRegistry[key] = { layer: tbl, rel, label: title, badgeEl: null };
-      if (key === "attachments"){
-        const f = tbl.fields.find(f=> f.name.toLowerCase()==="attach_category");
-        if (f?.domain?.codedValues) attachDomain = f.domain.codedValues.map(cv=>({code:cv.code,name:cv.name}));
+      <div id="formFields" style="display:none;">
+        <!-- Parcel Details -->
+        <h3>Parcel Details</h3>
+        <table class="assessment-table">
+          <tr><th>Lot/Plan</th>                 <td><input id="lotplan"     disabled /></td></tr>
+          <tr><th>Lot</th>                      <td><input id="lot"         disabled /></td></tr>
+          <tr><th>Plan</th>                     <td><input id="plan"        disabled /></td></tr>
+          <tr><th>Survey Indicator</th>         <td><input id="surv_ind"    disabled /></td></tr>
+          <tr><th>Title Reference</th>          <td><input id="title_ref"             /></td></tr>
+          <tr><th>Property Address</th>         <td><input id="prop_addr"             /></td></tr>
+          <tr><th>Area (ha)</th>                <td><input id="lot_area_c"            /></td></tr>
+          <tr><th>Tenure</th>                   <td><input id="tenure"       disabled /></td></tr>
+          <tr><th>Registered Owner/Trustee</th> <td><input id="reg_owner"            /></td></tr>
+          <tr><th>Local Government Area</th>    <td><input id="shire_name"   disabled /></td></tr>
+        </table>
+
+        <!-- Administrative Attributes -->
+        <h3>Administrative Attributes</h3>
+        <table class="assessment-table">
+          <tr><th>Access (Legal)</th>       <td><input id="access_l"    /></td></tr>
+          <tr><th>Access (Practical)</th>   <td><input id="access_p"    /></td></tr>
+          <tr><th>Registered Interests</th> <td><input id="ciram_chk"   /></td></tr>
+          <tr><th>Current Valuation</th>    <td><input id="qvas_val"    /></td></tr>
+          <tr><th>eLVAS Cases</th>          <td><input id="elvas_ref"   /></td></tr>
+        </table>
+
+        <!-- Site History & Background -->
+        <h3>
+          Site History &amp; Background
+          <span class="pill" id="openNotes">Notes <span class="badge" id="badgeNotes">0</span></span>
+        </h3>
+        <table class="assessment-table">
+          <tr><th>Native Title Status</th>      <td><input id="nt_status"      /></td></tr>
+          <tr><th>Indigenous Cult Heritage</th> <td><input id="ind_cul_he"     /></td></tr>
+          <tr><th>Qld Cult Heritage</th>        <td><input id="qld_cul_he"     /></td></tr>
+          <tr><th>Historical Tenure</th>        <td><input id="ten_hist"       /></td></tr>
+        </table>
+
+        <!-- Physical, Biological & Economic -->
+        <h3>Physical, Biological &amp; Economic</h3>
+        <table class="assessment-table">
+          <tr><th>Parcel Type</th>    <td><input id="parcel_typ"         /></td></tr>
+          <tr><th>Cover Type</th>     <td><input id="cover_typ"          /></td></tr>
+          <tr>
+            <th>Plan Constraints</th>
+            <td>
+              <textarea id="plan_const"></textarea>
+              <span class="pill" id="openAttach">Attachments <span class="badge" id="badgeAttach">0</span></span>
+            </td>
+          </tr>
+          <tr><th>MAUT Use</th>       <td><input id="mau"                /></td></tr>
+          <tr><th>Past Material</th>  <td><input id="p_mat"              /></td></tr>
+          <tr><th>Mining Interest</th><td><input id="mine_int"           /></td></tr>
+          <tr><th>EPM App/Grant</th>  <td><input id="epm_app" /><br/><input id="epm_granted" placeholder="Granted" /></td></tr>
+          <tr><th>ML Permit App/Grant</th><td><input id="ml_permit_app" /><br/><input id="ml_granted" placeholder="Granted" /></td></tr>
+          <tr><th>Exploration Permit</th> <td><input id="appln_int"      /></td></tr>
+        </table>
+
+        <!-- Environment & Planning -->
+        <h3>Environment &amp; Planning</h3>
+        <table class="assessment-table">
+          <tr><th>Contaminated Land</th>  <td><input id="contam_lan"     /></td></tr>
+          <tr><th>Stock Route</th>        <td><input id="stk_route"      /></td></tr>
+          <tr><th>State Plan Policy</th>  <td><input id="plan_schem"     /></td></tr>
+          <tr><th>Regional Plan</th>      <td><textarea id="regional_plan"></textarea></td></tr>
+          <tr><th>Flood Hazard</th>       <td><input id="flooding"       /></td></tr>
+          <tr><th>Bushfire Hazard</th>    <td><input id="bushfire"       /></td></tr>
+          <tr><th>Coastal Management</th> <td><input id="coastal_mgmt"   /></td></tr>
+          <tr><th>Veg Mgmt Categories</th><td><input id="veg_mgmt_cat"   /></td></tr>
+          <tr><th>Veg Mgmt Reg Ecos</th>  <td><input id="veg_mgmt_reg_eco"/></td></tr>
+        </table>
+
+        <!-- Social & Cultural -->
+        <h3>Social &amp; Cultural Attributes</h3>
+        <table class="assessment-table">
+          <tr><th>Heritage Mgmt Plan</th><td><textarea id="cul_mgmt_plan"></textarea></td></tr>
+          <tr><th>Study Area Bdy</th>    <td><textarea id="cul_studyarea_bdy"></textarea></td></tr>
+          <tr><th>Party</th>            <td><input id="cul_party" /></td></tr>
+        </table>
+
+        <div style="margin-top:12px; text-align:right;">
+          <button id="saveBtn" class="btn" disabled>Save</button>
+          <button id="reportBtn" class="btn" disabled>Report</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Related drawer (required by the script) -->
+    <div id="relatedPane">
+      <div id="relatedHead">
+        <strong>Related</strong>
+        <div style="display:flex; gap:6px;">
+          <button id="toggleWide" class="btn" style="background:#28559a">Wide</button>
+          <button id="closeRelated" class="btn" style="background:#666">Close</button>
+        </div>
+      </div>
+      <div id="tabs" class="tabs"></div>
+      <div id="relatedActions" style="margin-bottom:10px;"></div>
+      <div id="relatedContent" class="list"></div>
+    </div>
+  </div>
+
+  <script src="https://js.arcgis.com/4.29/"></script>
+  <script>
+  // run AFTER the DOM exists so #viewDiv is present
+  window.addEventListener("DOMContentLoaded", function(){
+
+  require([
+    "esri/Map","esri/views/MapView","esri/layers/FeatureLayer","esri/layers/GraphicsLayer",
+    "esri/Graphic","esri/widgets/Zoom","esri/widgets/Search"
+  ], function(Map, MapView, FeatureLayer, GraphicsLayer, Graphic, Zoom, Search) {
+
+    const BASE = "https://uat-qportal.information.qld.gov.au/arcgis/rest/services/LEAP_ClaimParcels_rbt/FeatureServer";
+    const PARCEL_URL = BASE + "/0";
+
+    // DOM
+    const svcWarn   = document.getElementById("svcWarn");
+    const startHint = document.getElementById("startHint");
+    const form      = document.getElementById("formFields");
+    const saveBtn   = document.getElementById("saveBtn");
+    const reportBtn = document.getElementById("reportBtn");
+    const openNotes = document.getElementById("openNotes");
+    const openAttach= document.getElementById("openAttach");
+    const closeRelated = document.getElementById("closeRelated");
+    const toggleWide   = document.getElementById("toggleWide");
+    const tabsEl    = document.getElementById("tabs");
+    const relatedContent = document.getElementById("relatedContent");
+    const relatedActions = document.getElementById("relatedActions");
+    const badgeNotes  = document.getElementById("badgeNotes");
+    const badgeAttach = document.getElementById("badgeAttach");
+
+    // Map + view
+    const map = new Map({ basemap: "satellite" });
+    const view = new MapView({ container: "viewDiv", map, zoom: 6, center: [145, -24] });
+    view.popup.autoOpenEnabled = false;
+    view.when(()=>{ view.ui.remove("zoom"); view.ui.add(new Zoom({ view }), "top-left"); });
+
+    const search = new Search({ view, includeDefaultSources: true, allPlaceholder: "Search address or Lot/Plan" });
+    view.ui.add(search, "top-right");
+
+    const highlightLayer = new GraphicsLayer(); map.add(highlightLayer);
+
+    // State
+    let parcelFL = null, relRegistry = {}, parcelFields = {}, activeTab = null, selected = null, noteScopeField = null, attachDomain = [];
+
+    // Load parcel layer safely
+    (async function init(){
+      parcelFL = await safeLoadFL(PARCEL_URL);
+      if (!parcelFL){ if (svcWarn) svcWarn.style.display="block"; return; }
+      if (svcWarn) svcWarn.style.display="none";
+      map.add(parcelFL);
+      parcelFields = Object.fromEntries(parcelFL.fields.map(f=>[f.name,{alias:f.alias||f.name,type:f.type}]));
+      try{ await view.goTo(parcelFL.fullExtent); }catch{}
+
+      // Lot/Plan search
+      search.sources.add({ layer: parcelFL, searchFields:["lotplan"], displayField:"lotplan", name:"Claim Parcels", placeholder:"e.g. 45SP164230", outFields:["*"] });
+
+      await buildRelatedRegistry();
+
+      view.on("click", hitSelect);
+      search.on("select-result", (e)=> e.result?.feature && onSelect(e.result.feature));
+      installFieldNoteButtons();
+    })();
+
+    async function safeLoadFL(url){
+      const fl = new FeatureLayer({ url, outFields:["*"] });
+      try{ await fl.load(); return fl; } catch(e){ console.warn("Failed to load", url, e); return null; }
+    }
+
+    async function buildRelatedRegistry(){
+      if (!tabsEl) return; // if drawer markup removed, skip UI
+      relRegistry = {};
+      const rels = parcelFL.relationships || [];
+      for (const rel of rels){
+        const url = BASE + "/" + rel.relatedTableId;
+        const tbl = await safeLoadFL(url);
+        if (!tbl) continue;
+        const title = (tbl.title || tbl.name || `Related ${rel.id}`).trim();
+        const low = title.toLowerCase();
+        const key = low.includes("attach") ? "attachments" : low.includes("note") ? "notes" : `rel_${rel.id}`;
+        relRegistry[key] = { layer: tbl, rel, label: title, badgeEl: null };
+        if (key==="attachments"){
+          const f = tbl.fields.find(f=> f.name.toLowerCase()==="attach_category");
+          if (f?.domain?.codedValues) attachDomain = f.domain.codedValues.map(cv=>({code:cv.code,name:cv.name}));
+        }
+      }
+      buildTabs();
+    }
+
+    function buildTabs(){
+      if (!tabsEl) return;
+      tabsEl.innerHTML = "";
+      const keys = Object.keys(relRegistry);
+      if (!keys.length){ const t=document.createElement("div"); t.className="tab active"; t.textContent="No Related Tables"; tabsEl.appendChild(t); return; }
+      keys.forEach(k=>{
+        const v=relRegistry[k];
+        const t=document.createElement("div"); t.className="tab";
+        t.innerHTML = `${htmlEscape(v.label)} <span class="badge">0</span>`;
+        t.onclick = ()=> setActiveTab(k);
+        tabsEl.appendChild(t);
+        v.badgeEl = t.querySelector(".badge");
+      });
+      setActiveTab(relRegistry.notes ? "notes" : keys[0]);
+    }
+    function setActiveTab(key){
+      activeTab = key;
+      if (tabsEl){
+        [...tabsEl.children].forEach(el => el.classList.toggle("active", el.textContent.startsWith(relRegistry[key]?.label)));
+      }
+      renderRelated();
+    }
+
+    // Drawer open/close
+    if (openNotes) openNotes.onclick  = ()=> { noteScopeField=null; openDrawer("notes"); };
+    if (openAttach)openAttach.onclick = ()=> openDrawer("attachments");
+    if (closeRelated) closeRelated.onclick = ()=> { document.body.classList.remove("open-related","wide-related"); noteScopeField=null; view.resize(); };
+    if (toggleWide)  toggleWide.onclick   = ()=> { document.body.classList.toggle("wide-related"); view.resize(); };
+
+    function openDrawer(key){
+      if (!relRegistry[key]) return;
+      setActiveTab(key);
+      document.body.classList.add("open-related","wide-related");
+      renderRelated().then(()=> view.resize());
+    }
+
+    // Selection
+    function hitSelect(evt){
+      if (!parcelFL) return;
+      view.hitTest(evt).then(r=>{
+        const hit = r.results.find(x=> x.graphic?.layer===parcelFL);
+        if (hit) onSelect(hit.graphic); else clearSelection();
+      });
+    }
+    function onSelect(f){
+      selected = f;
+      fillForm(f);
+      highlight(f);
+      startHint.style.display="none"; form.style.display="block";
+      saveBtn.disabled = reportBtn.disabled = false;
+      refreshCounts();
+      if (document.body.classList.contains("open-related")) renderRelated().then(()=> view.resize());
+    }
+    function clearSelection(){
+      highlightLayer.removeAll();
+      selected=null;
+      startHint.style.display="block"; form.style.display="none";
+      saveBtn.disabled = reportBtn.disabled = true;
+      if (relatedActions) relatedActions.innerHTML="";
+      if (relatedContent) relatedContent.innerHTML="";
+      Object.values(relRegistry).forEach(v=> v.badgeEl && (v.badgeEl.textContent="0"));
+    }
+    function fillForm(f){
+      const a=f.attributes||{};
+      Object.entries(a).forEach(([k,v])=>{
+        const el=document.getElementById(k); if (!el) return;
+        el.value = (v==null?"": (k==="lot_area" ? (v/10000).toFixed(3) : v));
+      });
+    }
+    function highlight(f){
+      highlightLayer.removeAll();
+      highlightLayer.add(new Graphic({ geometry:f.geometry, symbol:{ type:"simple-fill", color:[0,200,0,0.25], outline:{ color:"#00e0ff", width:2 } }}));
+      try{ view.goTo(f.geometry.extent.expand(1.2)); }catch{}
+    }
+
+    // Save edits
+    saveBtn.onclick = ()=>{
+      if (!selected || !parcelFL) return;
+      const attrs = {...selected.attributes};
+      Object.keys(attrs).forEach(k=>{ const el=document.getElementById(k); if (el && !el.disabled) attrs[k]=el.value; });
+      parcelFL.applyEdits({ updateFeatures:[{ attributes: attrs }] })
+        .then(()=> alert("Saved"))
+        .catch(e=> alert("Save error: "+e.message));
+    };
+
+    // Counts on badges
+    async function refreshCounts(){
+      if (!selected) return;
+      const p = selected.attributes;
+      for (const [k,v] of Object.entries(relRegistry)){
+        let count=0;
+        try{
+          if (k==="attachments" && relRegistry.notes){
+            const n = await relRegistry.notes.layer.queryFeatures({
+              where: `${relRegistry.notes.rel.relatedKeyField}='${p[relRegistry.notes.rel.keyField]}'`,
+              outFields:["globalid"], returnGeometry:false
+            });
+            const gids=(n.features||[]).map(f=> `'${f.attributes.globalid}'`);
+            count = gids.length ? await v.layer.queryFeatureCount({ where:`parent_guid IN (${gids.join(",")})` }) : 0;
+          } else {
+            count = await v.layer.queryFeatureCount({ where:`${v.rel.relatedKeyField}='${p[v.rel.keyField]}'` });
+          }
+        }catch{}
+        if (v.badgeEl) v.badgeEl.textContent = count;
+        if (k==="notes" && badgeNotes) badgeNotes.textContent = count;
+        if (k==="attachments" && badgeAttach) badgeAttach.textContent = count;
       }
     }
-    buildTabs();
-  }
 
-  function buildTabs(){
-    tabsEl.innerHTML = "";
-    const keys = Object.keys(relRegistry);
-    if (!keys.length){
-      const t=document.createElement("div");
-      t.className="tab active"; t.textContent="No Related Tables";
-      tabsEl.appendChild(t); return;
+    // Render related areas (notes & attachments)
+    async function renderRelated(){
+      if (!selected || !activeTab || !relRegistry[activeTab] || !relatedContent) return;
+      relatedActions.innerHTML=""; relatedContent.innerHTML="";
+      const {layer:tbl, rel, label} = relRegistry[activeTab];
+      const parentVal = selected.attributes[rel.keyField];
+
+      if (activeTab==="notes") return renderNotes(tbl, rel, parentVal);
+      if (activeTab==="attachments") return renderAttachments(tbl, rel, parentVal);
+
+      const res = await tbl.queryFeatures({ where:`${rel.relatedKeyField}='${parentVal}'`, outFields:["*"], returnGeometry:false, orderByFields:["created_date ASC"] });
+      const rows = res.features||[];
+      relatedContent.innerHTML = rows.length ? "" : `<div class="card">No rows in <b>${htmlEscape(label)}</b> for this parcel.</div>`;
+      rows.forEach((r,i)=>{
+        const d=document.createElement("div"); d.className="card small";
+        d.innerHTML = `<strong>${htmlEscape(label)} ${i+1}</strong><pre style="white-space:pre-wrap; margin:8px 0 0 0;">${htmlEscape(JSON.stringify(r.attributes,null,2))}</pre>`;
+        relatedContent.appendChild(d);
+      });
     }
-    keys.forEach(k=>{
-      const v=relRegistry[k];
-      const t=document.createElement("div");
-      t.className="tab";
-      t.innerHTML = `${htmlEscape(v.label)} <span class="badge">0</span>`;
-      t.onclick = ()=> setActiveTab(k);
-      tabsEl.appendChild(t);
-      v.badgeEl = t.querySelector(".badge");
-    });
-    setActiveTab(relRegistry.notes ? "notes" : keys[0]);
-  }
-  function setActiveTab(key){
-    activeTab = key;
-    [...tabsEl.children].forEach(el => el.classList.toggle("active", el.textContent.startsWith(relRegistry[key]?.label)));
-    renderRelated();
-  }
 
-  // drawer controls
-  (openNotes||{}).onclick  = ()=> { noteScopeField=null; openDrawer("notes"); };
-  (openAttach||{}).onclick = ()=> openDrawer("attachments");
-  (closeRelated||{}).onclick = ()=> { document.body.classList.remove("app--related-open","app--related-wide"); noteScopeField=null; resizeView(); };
-  (toggleWide||{}).onclick   = ()=> { document.body.classList.toggle("app--related-wide"); toggleWide.textContent = document.body.classList.contains("app--related-wide") ? "Collapse" : "Wide"; resizeView(); };
-  function openDrawer(key){ if (!relRegistry[key]) return; setActiveTab(key); document.body.classList.add("app--related-open","app--related-wide"); renderRelated().then(resizeView); }
+    async function renderNotes(tbl, rel, parentVal){
+      const res = await tbl.queryFeatures({ where:`${rel.relatedKeyField}='${parentVal}'`, outFields:["*"], returnGeometry:false, orderByFields:["created_date ASC"] });
+      const rows = res.features||[];
+      if (!rows.length){
+        relatedContent.innerHTML = "<div class='card'>No notes yet for this parcel.</div>";
+        relatedActions.innerHTML = `<button class="btn" id="addNote">New Note</button>`;
+        document.getElementById("addNote").onclick = createNote;
+        return;
+      }
+      const note = rows[0], nAttrs = note.attributes, pAttrs = selected.attributes;
+      const pairs = buildPairs(pAttrs, nAttrs, noteScopeField);
 
-  // selection
-  function hitSelect(evt){
-    if (!parcelFL) return;
-    view.hitTest(evt).then(r=>{
-      const hit = r.results.find(x => x.graphic?.layer === parcelFL);
-      if (hit) onSelect(hit.graphic); else clearSelection();
-    });
-  }
-  function onSelect(f){
-    selected = f;
-    fillForm(f);
-    highlight(f);
-    document.body.classList.add("app--parcel-selected");
-    startHint.style.display="none"; form.style.display="block";
-    saveBtn.disabled = reportBtn.disabled = false;
-    refreshCounts();
-    if (document.body.classList.contains("app--related-open")) renderRelated().then(resizeView);
-  }
-  function clearSelection(){
-    highlightLayer.removeAll();
-    selected = null;
-    startHint.style.display="block"; form.style.display="none";
-    saveBtn.disabled = reportBtn.disabled = true;
-    document.body.classList.remove("app--parcel-selected");
-    relatedActions.innerHTML = ""; relatedContent.innerHTML = "";
-    Object.values(relRegistry).forEach(v=> v.badgeEl && (v.badgeEl.textContent="0"));
-  }
-  function fillForm(f){
-    const a=f.attributes||{};
-    Object.entries(a).forEach(([k,v])=>{
-      const el=document.getElementById(k); if (!el) return;
-      el.value = (v==null ? "" : (k==="lot_area" ? (v/10000).toFixed(3) : v));
-    });
-  }
-  function highlight(f){
-    highlightLayer.removeAll();
-    highlightLayer.add(new Graphic({ geometry:f.geometry, symbol:{ type:"simple-fill", color:[0,200,0,0.25], outline:{ color:"#00e0ff", width:2 } }}));
-    try{ view.goTo(f.geometry.extent.expand(1.2)); }catch{}
-  }
-
-  // save parcel edits
-  saveBtn.onclick = ()=>{
-    if (!selected || !parcelFL) return;
-    const attrs = {...selected.attributes};
-    Object.keys(attrs).forEach(k=>{ const el=document.getElementById(k); if (el && !el.disabled) attrs[k]=el.value; });
-    parcelFL.applyEdits({ updateFeatures:[{ attributes: attrs }] })
-      .then(()=> alert("Saved"))
-      .catch(e=> alert("Save error: "+e.message));
-  };
-
-  // counts
-  async function refreshCounts(){
-    if (!selected) return;
-    const p = selected.attributes;
-    for (const [k,v] of Object.entries(relRegistry)){
-      let count=0;
-      try{
-        if (k==="attachments" && relRegistry.notes){
-          const n = await relRegistry.notes.layer.queryFeatures({
-            where: `${relRegistry.notes.rel.relatedKeyField} = '${p[relRegistry.notes.rel.keyField]}'`,
-            outFields:["globalid"], returnGeometry:false
-          });
-          const gids=(n.features||[]).map(f=> `'${f.attributes.globalid}'`);
-          count = gids.length ? await v.layer.queryFeatureCount({ where:`parent_guid IN (${gids.join(",")})` }) : 0;
-        } else {
-          count = await v.layer.queryFeatureCount({ where:`${v.rel.relatedKeyField} = '${p[v.rel.keyField]}'` });
-        }
-      }catch{}
-      if (v.badgeEl) v.badgeEl.textContent = count;
-      if (k==="notes") badgeNotes.textContent = count;
-      if (k==="attachments") badgeAttach.textContent = count;
-    }
-  }
-
-  // render
-  async function renderRelated(){
-    relatedActions.innerHTML=""; relatedContent.innerHTML="";
-    if (!selected || !activeTab || !relRegistry[activeTab]) return;
-    const {layer:tbl, rel, label} = relRegistry[activeTab];
-    const parentVal = selected.attributes[rel.keyField];
-
-    if (activeTab==="notes") return renderNotes(tbl, rel, parentVal);
-    if (activeTab==="attachments") return renderAttachments(tbl, rel, parentVal);
-
-    const res = await tbl.queryFeatures({
-      where:`${rel.relatedKeyField}='${parentVal}'`,
-      outFields:["*"], returnGeometry:false, orderByFields:["created_date ASC"]
-    });
-    const rows = res.features||[];
-    relatedContent.innerHTML = rows.length ? "" : `<div class="card">No rows in <b>${htmlEscape(label)}</b> for this parcel.</div>`;
-    rows.forEach((r,i)=>{
-      const d=document.createElement("div"); d.className="card small";
-      d.innerHTML = `<strong>${htmlEscape(label)} ${i+1}</strong><pre style="white-space:pre-wrap; margin:8px 0 0 0;">${htmlEscape(JSON.stringify(r.attributes,null,2))}</pre>`;
-      relatedContent.appendChild(d);
-    });
-  }
-
-  async function renderNotes(tbl, rel, parentVal){
-    const res = await tbl.queryFeatures({
-      where:`${rel.relatedKeyField}='${parentVal}'`,
-      outFields:["*"], returnGeometry:false, orderByFields:["created_date ASC"]
-    });
-    const rows = res.features||[];
-    if (!rows.length){
-      relatedContent.innerHTML = "<div class='card'>No notes yet for this parcel.</div>";
-      relatedActions.innerHTML = `<button class="btn" id="addNote">New Note</button>`;
-      document.getElementById("addNote").onclick = createNote;
-      return;
-    }
-    const note = rows[0], nAttrs = note.attributes, pAttrs = selected.attributes;
-    const pairs = buildPairs(pAttrs, nAttrs, noteScopeField);
-
-    const wrap=document.createElement("div"); wrap.className="grid";
-    const left=document.createElement("div"); left.className="col"; left.innerHTML="<h4>Parcel (read-only)</h4>";
-    pairs.forEach(p=>{
-      const d=document.createElement("div");
-      d.innerHTML=`<label>${htmlEscape(p.aliasP)}</label><div class="muted">${htmlEscape(p.pVal??"")}</div>`;
-      left.appendChild(d);
-    });
-    const right=document.createElement("div"); right.className="col"; right.innerHTML="<h4>Note (editable)</h4>";
-    pairs.forEach(p=>{
-      const d=document.createElement("div");
-      d.innerHTML = p.long
-        ? `<label>${htmlEscape(p.aliasN)}</label><textarea data-field="${p.nField}">${htmlEscape(p.nVal??"")}</textarea>`
-        : `<label>${htmlEscape(p.aliasN)}</label><input data-field="${p.nField}" value="${htmlEscape(p.nVal??"")}" />`;
-      right.appendChild(d);
-    });
-    const actions=document.createElement("div"); actions.style="margin-top:10px; text-align:right;";
-    const save=document.createElement("button"); save.className="btn"; save.textContent="Save Note";
-    save.onclick = async ()=>{
-      const edits={...nAttrs};
-      right.querySelectorAll("[data-field]").forEach(el=> edits[el.getAttribute("data-field")] = el.value);
-      try{ await tbl.applyEdits({ updateFeatures:[{ attributes: edits }] }); alert("Note saved"); refreshCounts(); }
-      catch(e){ alert("Save error: "+e.message); }
-    };
-    actions.appendChild(save);
-    wrap.appendChild(left); wrap.appendChild(right);
-    relatedContent.appendChild(wrap); relatedContent.appendChild(actions);
-
-    // ---- History (FIXED: no nested backticks) ----
-    const hist=document.createElement("div"); hist.className="list";
-    const histTitle=document.createElement("div"); histTitle.className="card";
-    const fieldsForHistory = scopeToNoteFields(noteScopeField, tbl);
-    histTitle.innerHTML = `<strong>History${
-      noteScopeField ? ' — ' + htmlEscape(parcelFields[noteScopeField]?.alias || noteScopeField) : ''
-    }</strong>`;
-    hist.appendChild(histTitle);
-
-    rows.forEach((r,i)=>{
-      const a=r.attributes; let body="";
-      fieldsForHistory.forEach(fn=>{ if (fn in a) body += `<div><b>${htmlEscape(fn)}:</b> ${htmlEscape(a[fn]??"")}</div>`; });
-      if (!body) return;
-      const c=document.createElement("div"); c.className="card small";
-      c.innerHTML = `<div class="muted">Row ${i+1}</div>${body}`;
-      hist.appendChild(c);
-    });
-    relatedContent.appendChild(hist);
-
-    relatedActions.innerHTML = `<button class="btn" id="addNote2">New Note</button>`;
-    document.getElementById("addNote2").onclick = createNote;
-
-    function createNote(){
-      const attrs = { parcelguid: pAttrs.globalid, s16_lotplan: pAttrs.lotplan||"" };
-      tbl.applyEdits({ addFeatures:[{ attributes: attrs }] })
-        .then(()=> renderRelated().then(refreshCounts))
-        .catch(e=> alert("Create note error: "+e.message));
-    }
-  }
-
-  async function renderAttachments(tbl, rel, parentVal){
-    const nRel = relRegistry.notes; if (!nRel){ relatedContent.innerHTML="<div class='card'>Notes table not found.</div>"; return; }
-    const ns = await nRel.layer.queryFeatures({
-      where:`${nRel.rel.relatedKeyField}='${parentVal}'`,
-      outFields:["globalid"], returnGeometry:false
-    });
-    const gids=(ns.features||[]).map(f=> `'${f.attributes.globalid}'`);
-    if (!gids.length){ relatedContent.innerHTML="<div class='card'>No notes yet; add a Note first.</div>"; return; }
-    const res = await tbl.queryFeatures({
-      where:`parent_guid IN (${gids.join(",")})`,
-      outFields:["*"], returnGeometry:false, orderByFields:["created_date ASC"]
-    });
-    const rows = res.features||[];
-    if (!rows.length){ relatedContent.innerHTML="<div class='card'>No attachments yet.</div>"; }
-    rows.forEach((r)=>{
-      const a=r.attributes;
-      const card=document.createElement("div"); card.className="card small";
-      const f1=document.createElement("div"); f1.innerHTML=`<label>Attachment name</label><input data-field="attach_name" value="${htmlEscape(a.attach_name??"")}" />`;
-      const f2=document.createElement("div");
-      let opts = attachDomain.map(cv=>`<option value="${htmlEscape(cv.code)}"${cv.code===a.attach_category?" selected":""}>${htmlEscape(cv.name)}</option>`).join("");
-      if (!opts) opts = `<option value="${htmlEscape(a.attach_category??"")}" selected>${htmlEscape(a.attach_category??"")}</option>`;
-      f2.innerHTML = `<label>Category</label><select data-field="attach_category">${opts}</select>`;
-      const f3=document.createElement("div"); f3.innerHTML=`<label>Parent Note GUID</label><div class="muted">${htmlEscape(a.parent_guid??"")}</div>`;
-      const actions=document.createElement("div"); actions.style="margin-top:8px; text-align:right;";
-      const save=document.createElement("button"); save.className="btn"; save.textContent="Save";
-      save.onclick = ()=> {
-        const edits={...a};
-        edits.attach_name = card.querySelector('[data-field="attach_name"]').value;
-        edits.attach_category = card.querySelector('[data-field="attach_category"]').value;
-        tbl.applyEdits({ updateFeatures:[{ attributes: edits }]})
-          .then(()=> refreshCounts())
-          .catch(e=> alert("Update error: "+e.message));
+      const wrap=document.createElement("div"); wrap.className="grid";
+      const left=document.createElement("div"); left.className="col"; left.innerHTML="<h4>Parcel (read-only)</h4>";
+      pairs.forEach(p=>{ const d=document.createElement("div"); d.innerHTML=`<label>${htmlEscape(p.aliasP)}</label><div class="muted">${htmlEscape(p.pVal??"")}</div>`; left.appendChild(d); });
+      const right=document.createElement("div"); right.className="col"; right.innerHTML="<h4>Note (editable)</h4>";
+      pairs.forEach(p=>{
+        const d=document.createElement("div");
+        d.innerHTML = p.long
+          ? `<label>${htmlEscape(p.aliasN)}</label><textarea data-field="${p.nField}">${htmlEscape(p.nVal??"")}</textarea>`
+          : `<label>${htmlEscape(p.aliasN)}</label><input data-field="${p.nField}" value="${htmlEscape(p.nVal??"")}" />`;
+        right.appendChild(d);
+      });
+      const actions=document.createElement("div"); actions.style="margin-top:10px; text-align:right;";
+      const save=document.createElement("button"); save.className="btn"; save.textContent="Save Note";
+      save.onclick = async ()=>{
+        const edits={...nAttrs};
+        right.querySelectorAll("[data-field]").forEach(el=> edits[el.getAttribute("data-field")] = el.value);
+        try{ await tbl.applyEdits({ updateFeatures:[{ attributes: edits }] }); alert("Note saved"); refreshCounts(); }
+        catch(e){ alert("Save error: "+e.message); }
       };
       actions.appendChild(save);
-      card.appendChild(f1); card.appendChild(f2); card.appendChild(f3); card.appendChild(actions);
-      relatedContent.appendChild(card);
-    });
-    relatedActions.innerHTML = `<button class="btn" id="addAttach">New Attachment</button>`;
-    document.getElementById("addAttach").onclick = async ()=>{
-      const first = ns.features?.[0]?.attributes?.globalid; if (!first){ alert("No note to attach to."); return; }
-      const name = prompt("Attachment name?"); if (name==null) return;
-      let cat = attachDomain[0]?.code || "";
-      if (attachDomain.length){
-        const list = attachDomain.map(cv=>`${cv.code} — ${cv.name}`).join("\n");
-        const inp = prompt("Category code:\n\n"+list+"\n\nEnter code exactly:"); if (inp && attachDomain.some(cv=>cv.code===inp)) cat=inp;
-      }
-      const attrs = { parent_guid:first, attach_name:name, attach_category:cat };
-      tbl.applyEdits({ addFeatures:[{ attributes: attrs }]})
-        .then(()=> renderRelated().then(refreshCounts))
-        .catch(e=> alert("Add error: "+e.message));
-    };
-  }
+      wrap.appendChild(left); wrap.appendChild(right);
+      relatedContent.appendChild(wrap); relatedContent.appendChild(actions);
 
-  function buildPairs(pAttrs, nAttrs, scope){
-    const pairs=[];
-    const add=(p,n)=>{
-      const long=/notes?|desc|plan|summary|comment|constraint/i.test(n);
-      pairs.push({ pField:p, nField:n, aliasP:(parcelFields[p]?.alias||p), aliasN:n, pVal:pAttrs[p], nVal:nAttrs[n], long });
-    };
-    const addFor=(base)=>{ if (base in nAttrs && base in pAttrs) add(base,base); if ((base+"_notes") in nAttrs && base in pAttrs) add(base,base+"_notes"); };
-    if (scope){
-      addFor(scope);
-      if ("s16_lotplan" in nAttrs && "lotplan" in pAttrs){
-        pairs.unshift({ pField:"lotplan", nField:"s16_lotplan", aliasP:(parcelFields["lotplan"]?.alias||"Lot/Plan"), aliasN:"Lot/Plan (Note)", pVal:pAttrs.lotplan, nVal:nAttrs.s16_lotplan, long:false });
+      // History (safe template literal)
+      const hist=document.createElement("div"); hist.className="list";
+      const histTitle=document.createElement("div"); histTitle.className="card";
+      const fieldsForHistory = scopeToNoteFields(noteScopeField, tbl);
+      histTitle.innerHTML = `<strong>History${noteScopeField ? ' — ' + htmlEscape(parcelFields[noteScopeField]?.alias || noteScopeField) : ''}</strong>`;
+      hist.appendChild(histTitle);
+      rows.forEach((r,i)=>{
+        const a=r.attributes; let body="";
+        fieldsForHistory.forEach(fn=>{ if (fn in a) body += `<div><b>${htmlEscape(fn)}:</b> ${htmlEscape(a[fn]??"")}</div>`; });
+        if (!body) return;
+        const c=document.createElement("div"); c.className="card small";
+        c.innerHTML = `<div class="muted">Row ${i+1}</div>${body}`;
+        hist.appendChild(c);
+      });
+      relatedContent.appendChild(hist);
+
+      relatedActions.innerHTML = `<button class="btn" id="addNote2">New Note</button>`;
+      document.getElementById("addNote2").onclick = createNote;
+
+      function createNote(){
+        const attrs = { parcelguid: pAttrs.globalid, s16_lotplan: pAttrs.lotplan||"" };
+        tbl.applyEdits({ addFeatures:[{ attributes: attrs }] })
+          .then(()=> renderRelated().then(refreshCounts))
+          .catch(e=> alert("Create note error: "+e.message));
       }
+    }
+
+    async function renderAttachments(tbl, rel, parentVal){
+      const nRel = relRegistry.notes; if (!nRel){ relatedContent.innerHTML="<div class='card'>Notes table not found.</div>"; return; }
+      const ns = await nRel.layer.queryFeatures({ where:`${nRel.rel.relatedKeyField}='${parentVal}'`, outFields:["globalid"], returnGeometry:false });
+      const gids=(ns.features||[]).map(f=> `'${f.attributes.globalid}'`);
+      if (!gids.length){ relatedContent.innerHTML="<div class='card'>No notes yet; add a Note first.</div>"; return; }
+      const res = await tbl.queryFeatures({ where:`parent_guid IN (${gids.join(",")})`, outFields:["*"], returnGeometry:false, orderByFields:["created_date ASC"] });
+      const rows = res.features||[];
+      if (!rows.length){ relatedContent.innerHTML="<div class='card'>No attachments yet.</div>"; }
+      rows.forEach((r)=>{
+        const a=r.attributes;
+        const card=document.createElement("div"); card.className="card small";
+        const f1=document.createElement("div"); f1.innerHTML=`<label>Attachment name</label><input data-field="attach_name" value="${htmlEscape(a.attach_name??"")}" />`;
+        const f2=document.createElement("div");
+        let opts = attachDomain.map(cv=>`<option value="${htmlEscape(cv.code)}"${cv.code===a.attach_category?" selected":""}>${htmlEscape(cv.name)}</option>`).join("");
+        if (!opts) opts = `<option value="${htmlEscape(a.attach_category??"")}" selected>${htmlEscape(a.attach_category??"")}</option>`;
+        f2.innerHTML = `<label>Category</label><select data-field="attach_category">${opts}</select>`;
+        const f3=document.createElement("div"); f3.innerHTML=`<label>Parent Note GUID</label><div class="muted">${htmlEscape(a.parent_guid??"")}</div>`;
+        const actions=document.createElement("div"); actions.style="margin-top:8px; text-align:right;";
+        const save=document.createElement("button"); save.className="btn"; save.textContent="Save";
+        save.onclick = ()=> {
+          const edits={...a};
+          edits.attach_name = card.querySelector('[data-field="attach_name"]').value;
+          edits.attach_category = card.querySelector('[data-field="attach_category"]').value;
+          tbl.applyEdits({ updateFeatures:[{ attributes: edits }]})
+            .then(()=> refreshCounts())
+            .catch(e=> alert("Update error: "+e.message));
+        };
+        actions.appendChild(save);
+        card.appendChild(f1); card.appendChild(f2); card.appendChild(f3); card.appendChild(actions);
+        relatedContent.appendChild(card);
+      });
+      relatedActions.innerHTML = `<button class="btn" id="addAttach">New Attachment</button>`;
+      document.getElementById("addAttach").onclick = async ()=>{
+        const first = ns.features?.[0]?.attributes?.globalid; if (!first){ alert("No note to attach to."); return; }
+        const name = prompt("Attachment name?"); if (name==null) return;
+        const attrs = { parent_guid:first, attach_name:name, attach_category:(attachDomain[0]?.code||"") };
+        tbl.applyEdits({ addFeatures:[{ attributes: attrs }]})
+          .then(()=> renderRelated().then(refreshCounts))
+          .catch(e=> alert("Add error: "+e.message));
+      };
+    }
+
+    function buildPairs(pAttrs, nAttrs, scope){
+      const pairs=[];
+      const add=(p,n)=>{ const long=/notes?|desc|plan|summary|comment|constraint/i.test(n); pairs.push({ pField:p, nField:n, aliasP:(parcelFields[p]?.alias||p), aliasN:n, pVal:pAttrs[p], nVal:nAttrs[n], long }); };
+      const addFor=(base)=>{ if (base in nAttrs && base in pAttrs) add(base,base); if ((base+"_notes") in nAttrs && base in pAttrs) add(base,base+"_notes"); };
+      if (scope){
+        addFor(scope);
+        if ("s16_lotplan" in nAttrs && "lotplan" in pAttrs) pairs.unshift({ pField:"lotplan", nField:"s16_lotplan", aliasP:(parcelFields["lotplan"]?.alias||"Lot/Plan"), aliasN:"Lot/Plan (Note)", pVal:pAttrs.lotplan, nVal:nAttrs.s16_lotplan, long:false });
+        return pairs;
+      }
+      Object.keys(nAttrs).forEach(nf=>{ if (!/^(objectid|globalid|parcelguid|created_|last_edited)/i.test(nf) && (nf in pAttrs)) add(nf,nf); });
+      Object.keys(nAttrs).forEach(nf=>{ if (!pairs.find(p=>p.nField===nf)){ const base=nf.replace(/_?notes?$/i,""); if (base && (base in pAttrs)) add(base,nf); }});
+      if (!pairs.find(p=>p.pField==="lotplan") && ("s16_lotplan" in nAttrs)) pairs.unshift({ pField:"lotplan", nField:"s16_lotplan", aliasP:(parcelFields["lotplan"]?.alias||"Lot/Plan"), aliasN:"Lot/Plan (Note)", pVal:pAttrs.lotplan, nVal:nAttrs.s16_lotplan, long:false });
       return pairs;
     }
-    Object.keys(nAttrs).forEach(nf=>{ if (!/^(objectid|globalid|parcelguid|created_|last_edited)/i.test(nf) && (nf in pAttrs)) add(nf,nf); });
-    Object.keys(nAttrs).forEach(nf=>{ if (!pairs.find(p=>p.nField===nf)){ const base=nf.replace(/_?notes?$/i,""); if (base && (base in pAttrs)) add(base,nf); }});
-    if (!pairs.find(p=>p.pField==="lotplan") && ("s16_lotplan" in nAttrs)){
-      pairs.unshift({ pField:"lotplan", nField:"s16_lotplan", aliasP:(parcelFields["lotplan"]?.alias||"Lot/Plan"), aliasN:"Lot/Plan (Note)", pVal:pAttrs.lotplan, nVal:nAttrs.s16_lotplan, long:false });
+    function scopeToNoteFields(base, tbl){
+      if (!base) return [];
+      const has = (n)=> !!tbl.fields.find(f=>f.name===n);
+      const arr=[]; if (has(base)) arr.push(base); if (has(base+"_notes")) arr.push(base+"_notes"); return arr.length?arr:[base];
     }
-    return pairs;
-  }
-  function scopeToNoteFields(base, tbl){
-    if (!base) return [];
-    const has = (n)=> !!tbl.fields.find(f=>f.name===n);
-    const arr=[]; if (has(base)) arr.push(base); if (has(base+"_notes")) arr.push(base+"_notes"); return arr.length?arr:[base];
-  }
+    function installFieldNoteButtons(){
+      ["plan_schem","regional_plan","qld_cul_he","nt_status","ten_hist","plan_const","cul_mgmt_plan","cul_studyarea_bdy"].forEach(fid=>{
+        const input = document.getElementById(fid); if (!input) return;
+        const th = input.closest("td")?.previousElementSibling; if (!th || th.querySelector(".mini-note")) return;
+        const btn=document.createElement("span"); btn.className="mini-note"; btn.textContent="📝"; btn.title="Notes for this field";
+        btn.onclick = ()=> { noteScopeField=fid; openDrawer("notes"); };
+        th.appendChild(btn);
+      });
+    }
+    function htmlEscape(s){ return (s==null?"":String(s)).replace(/[&<>"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m])); }
 
-  // tiny 📝 buttons
-  function installFieldNoteButtons(){
-    NOTE_FIELDS.forEach(fid=>{
-      const input = document.getElementById(fid); if (!input) return;
-      const th = input.closest("td")?.previousElementSibling; if (!th || th.querySelector(".mini-note")) return;
-      const btn=document.createElement("span"); btn.className="mini-note"; btn.textContent="📝"; btn.title="Notes for this field";
-      btn.onclick = ()=> { noteScopeField=fid; openDrawer("notes"); };
-      th.appendChild(btn);
-    });
-  }
-
-  // HTML escape helper (avoid window.escape collision)
-  function htmlEscape(s){ return (s==null?"":String(s)).replace(/[&<>"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m])); }
-
-  // keep map healthy when layout shifts
-  const ro = new ResizeObserver(()=> resizeView());
-  ro.observe(document.getElementById("infoPane"));
-  ro.observe(document.getElementById("relatedPane"));
-});
-</script>
+  }); // require
+  }); // DOMContentLoaded
+  </script>
+</body>
+</html>
