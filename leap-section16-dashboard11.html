@@ -10,57 +10,40 @@
       --info-width: 420px;
       --info-wide-min: 520px;
       --related-width: 360px;
-      --related-width-wide: 46vw; /* ~blue-line width */
+      --related-width-wide: 46vw;
     }
     html, body, #container { margin:0; padding:0; height:100%; }
     body { font-family: Arial, sans-serif; }
     #container { display:flex; height:100%; width:100%; overflow:hidden; }
 
-    /* Map column never collapses */
-    #mapPane { position:relative; flex:1 1 auto; min-width: 360px; }
-    #viewDiv { position:absolute; inset:0; }
+    #mapPane { position:relative; flex:1 1 auto; min-width:360px; }
+    #viewDiv { position:absolute; inset:0; background:#f6f6f6; }
 
-    /* Assessment panel */
     #infoPane{
-      flex:0 0 auto;
-      width:var(--info-width);
-      min-width:var(--info-width);
-      background:#f5f5f5;
-      overflow:auto;
-      padding:20px;
-      box-sizing:border-box;
-      border-left:1px solid #e1e1e1;
+      flex:0 0 auto; width:var(--info-width); min-width:var(--info-width);
+      background:#f5f5f5; overflow:auto; padding:20px; box-sizing:border-box; border-left:1px solid #e1e1e1;
       transition: width .28s ease, min-width .28s ease;
     }
-    .app--parcel-selected #infoPane{
-      width:36vw;
-      min-width:var(--info-wide-min);
-    }
+    .app--parcel-selected #infoPane{ width:36vw; min-width:var(--info-wide-min); }
 
     #infoPane h2{ margin:0 0 8px; color:#003087; }
-    #infoPane h3{
-      margin:16px 0 8px; font-size:1.05em; font-weight:600; color:#003087;
-      display:flex; align-items:center; gap:8px;
-    }
+    #infoPane h3{ margin:16px 0 8px; font-size:1.05em; font-weight:600; color:#003087; display:flex; align-items:center; gap:8px; }
+
     .assessment-table { width:100%; border-collapse:collapse; table-layout:fixed; }
     .assessment-table th{ text-align:left; padding:6px 8px; vertical-align:top; width:34%; }
     .assessment-table td{ padding:6px 8px; vertical-align:top; }
     .assessment-table input, .assessment-table textarea{
-      width:100%; padding:8px 10px; font-size:1rem; box-sizing:border-box;
-      border:1px solid #cfcfcf; border-radius:6px; background:#fff;
+      width:100%; padding:8px 10px; font-size:1rem; box-sizing:border-box; border:1px solid #cfcfcf; border-radius:6px; background:#fff;
     }
     .assessment-table textarea{ min-height:90px; resize:vertical; line-height:1.35; }
-    .rel-chip{
-      font-size:.85em; border:1px solid #c9c9c9; background:#fff; border-radius:999px;
-      padding:2px 10px; cursor:pointer; display:inline-flex; align-items:center; gap:6px;
-    }
-    .rel-chip .badge{ min-width:18px; height:18px; line-height:18px; font-size:.8em; border-radius:9px; background:#eee; border:1px solid #bbb; text-align:center; }
+
+    .rel-chip{ font-size:.85em; border:1px solid #c9c9c9; background:#fff; border-radius:999px; padding:2px 10px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; }
+    .badge{ display:inline-block; min-width:18px; height:18px; line-height:18px; text-align:center; font-size:.8em; border-radius:9px; background:#eee; border:1px solid #bbb; }
 
     .btn{ background:#003087; color:#fff; border:none; padding:8px 14px; border-radius:6px; cursor:pointer; }
     .btn:disabled{ background:#a9a9a9; cursor:not-allowed; }
     .pill{ padding:4px 10px; border:1px solid #c9c9c9; border-radius:999px; background:#fff; }
 
-    /* Related drawer */
     #relatedPane{
       flex:0 0 auto; width:var(--related-width); max-width:100vw;
       background:#fff; border-left:1px solid #e1e1e1; box-shadow:-10px 0 20px rgba(0,0,0,.06);
@@ -72,25 +55,25 @@
     .tabs{ display:flex; gap:8px; margin:10px 0 12px; flex-wrap:wrap; }
     .tab{ padding:6px 10px; border:1px solid #c9c9c9; border-radius:999px; background:#f8f8f8; cursor:pointer; display:inline-flex; align-items:center; gap:6px; }
     .tab.active{ background:#fff; border-color:#888; }
-    .badge{ display:inline-block; min-width:18px; height:18px; line-height:18px; text-align:center; font-size:.8em; border-radius:9px; background:#eee; border:1px solid #bbb; }
     .list{ display:flex; flex-direction:column; gap:10px; }
     .card{ border:1px solid #eee; border-radius:8px; padding:10px; }
     .grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
     .grid .col{ border:1px solid #eee; border-radius:8px; padding:10px; }
     .grid .col h4{ margin:0 0 8px; font-size:1em; color:#003087; }
 
-    /* field-level note buttons */
     .mini-note{ margin-left:6px; font-size:.85em; padding:1px 8px; border:1px solid #c9c9c9; border-radius:999px; cursor:pointer; background:#fff; }
     .mini-note:hover{ background:#f2f6ff; border-color:#7aa2ff; }
 
-    /* small banner when service unreachable */
     #svcWarn{ position:absolute; top:10px; left:10px; padding:6px 10px; background:#fff4d6; border:1px solid #f0c36d; border-radius:6px; font-size:.9em; display:none; z-index:5; }
+    #errOverlay{ position:absolute; top:10px; right:10px; max-width:420px; background:#ffecec; border:1px solid #ff9b9b; padding:10px; border-radius:8px; font-size:.9em; color:#a10000; display:none; z-index:6; }
+    #errOverlay pre{ white-space:pre-wrap; margin:6px 0 0 0; }
   </style>
 </head>
 <body>
   <div id="container">
     <div id="mapPane">
-      <div id="svcWarn">Service not reachable yet. Map is still usable; related tables will appear when the service loads.</div>
+      <div id="svcWarn">Service not reachable yet. Map is usable; related data will appear when the service loads.</div>
+      <div id="errOverlay"><strong>Script error</strong><pre id="errText"></pre></div>
       <div id="viewDiv"></div>
     </div>
 
@@ -187,43 +170,50 @@
       </div>
     </div>
 
-    <!-- Related Drawer -->
     <div id="relatedPane">
       <div id="relatedHead">
         <strong>Related</strong>
-        <div class="row" style="gap:6px;">
+        <div style="display:flex; gap:6px;">
           <button id="toggleWide" class="btn" style="background:#28559a">Wide</button>
           <button id="closeRelated" class="btn" style="background:#666">Close</button>
         </div>
       </div>
       <div id="tabs" class="tabs"></div>
-      <div id="relatedActions" class="row" style="margin-bottom:10px;"></div>
+      <div id="relatedActions" style="margin-bottom:10px;"></div>
       <div id="relatedContent" class="list"></div>
     </div>
   </div>
 
   <script src="https://js.arcgis.com/4.29/"></script>
   <script>
+  // Show any uncaught error right on the page (so you don't need devtools)
+  (function(){
+    const box = document.getElementById('errOverlay');
+    const pre = document.getElementById('errText');
+    window.addEventListener('error', (e)=>{ box.style.display='block'; pre.textContent=(e?.error?.stack||e?.message||String(e)); });
+    window.addEventListener('unhandledrejection', (e)=>{ box.style.display='block'; pre.textContent=(e?.reason?.stack||e?.reason?.message||String(e.reason)); });
+  })();
+
   require([
     "esri/Map","esri/views/MapView","esri/layers/FeatureLayer","esri/layers/GraphicsLayer",
     "esri/Graphic","esri/widgets/Zoom","esri/widgets/Search"
   ], function(Map, MapView, FeatureLayer, GraphicsLayer, Graphic, Zoom, Search) {
 
-    // ---------- Config ----------
+    // ----------------- Config -----------------
     const BASE = "https://uat-qportal.information.qld.gov.au/arcgis/rest/services/LEAP_ClaimParcels_rbt/FeatureServer";
     const PARCEL_URL = BASE + "/0";
 
-    // ---------- DOM ----------
-    const svcWarn  = document.getElementById("svcWarn");
-    const startHint= document.getElementById("startHint");
-    const form     = document.getElementById("formFields");
-    const saveBtn  = document.getElementById("saveBtn");
-    const reportBtn= document.getElementById("reportBtn");
-    const openNotes= document.getElementById("openNotes");
-    const openAttach=document.getElementById("openAttach");
-    const closeRelated=document.getElementById("closeRelated");
-    const toggleWide = document.getElementById("toggleWide");
-    const tabsEl   = document.getElementById("tabs");
+    // ----------------- DOM -----------------
+    const svcWarn   = document.getElementById("svcWarn");
+    const startHint = document.getElementById("startHint");
+    const form      = document.getElementById("formFields");
+    const saveBtn   = document.getElementById("saveBtn");
+    const reportBtn = document.getElementById("reportBtn");
+    const openNotes = document.getElementById("openNotes");
+    const openAttach= document.getElementById("openAttach");
+    const closeRelated = document.getElementById("closeRelated");
+    const toggleWide   = document.getElementById("toggleWide");
+    const tabsEl    = document.getElementById("tabs");
     const relatedContent = document.getElementById("relatedContent");
     const relatedActions = document.getElementById("relatedActions");
     const badgeNotes  = document.getElementById("badgeNotes");
@@ -231,85 +221,73 @@
 
     const NOTE_FIELDS = ["plan_schem","regional_plan","qld_cul_he","nt_status","ten_hist","plan_const","cul_mgmt_plan","cul_studyarea_bdy"];
 
-    // ---------- Map (always) ----------
+    // ----------------- Map FIRST (always) -----------------
     const map = new Map({ basemap: "satellite" });
     const view = new MapView({ container: "viewDiv", map, zoom: 6, center: [145, -24] });
     view.popup.autoOpenEnabled = false;
-    const resizeView = () => view && view.resize();
+    const resizeView = ()=> view && view.resize();
 
-    view.when(() => {
+    view.when(()=>{
       view.ui.remove("zoom");
       view.ui.add(new Zoom({ view }), "top-left");
     });
 
-    // Add Search immediately; we’ll add Lot/Plan source once parcel layer loads
     const search = new Search({ view, includeDefaultSources: true, allPlaceholder: "Search address or Lot/Plan" });
     view.ui.add(search, "top-right");
 
-    // ---------- Layers (try/catch) ----------
     const highlightLayer = new GraphicsLayer();
     map.add(highlightLayer);
 
-    let parcelFL = null, relRegistry = {}, parcelFields = {}, activeTab = null, noteScopeField = null, attachDomain = [];
+    // ----------------- Try to load service (safe) -----------------
+    let parcelFL = null, relRegistry = {}, parcelFields = {}, activeTab = null, selected = null, noteScopeField = null, attachDomain = [];
 
     (async function init(){
-      parcelFL = await tryLoadFeatureLayer(PARCEL_URL);
+      parcelFL = await safeLoadFL(PARCEL_URL);
       if (!parcelFL){
-        svcWarn.style.display = "block";       // we degrade gracefully
-        return;                                 // map still works; no related tabs yet
+        // keep the map working; show banner
+        svcWarn.style.display = "block";
+        // still listen for clicks (no parcel layer though)
+        return;
       }
       svcWarn.style.display = "none";
-      map.add(parcelFL);                        // add after it loads
+      map.add(parcelFL);
       parcelFields = indexFields(parcelFL.fields);
-      try { await view.goTo(parcelFL.fullExtent); } catch {}
+      try{ await view.goTo(parcelFL.fullExtent); }catch{}
 
-      // Add Lot/Plan as a Search source
-      search.sources.add({
-        layer: parcelFL,
-        searchFields: ["lotplan"],
-        displayField: "lotplan",
-        name: "Claim Parcels",
-        placeholder: "e.g. 45SP164230",
-        outFields: ["*"]
-      });
+      // Lot/Plan search source now that layer is live
+      search.sources.add({ layer: parcelFL, searchFields:["lotplan"], displayField:"lotplan", name:"Claim Parcels", placeholder:"e.g. 45SP164230", outFields:["*"] });
 
       // Build related tabs dynamically
       await buildRelatedRegistry();
 
-      // click + search selection
+      // interactions
       view.on("click", hitSelect);
-      search.on("select-result", e => e.result?.feature && onSelect(e.result.feature));
+      search.on("select-result", (e)=> e.result?.feature && onSelect(e.result.feature));
 
-      // 📝 buttons after metadata is ready
+      // add the tiny 📝 buttons
       installFieldNoteButtons();
     })();
 
-    async function tryLoadFeatureLayer(url){
+    async function safeLoadFL(url){
       const fl = new FeatureLayer({ url, outFields:["*"] });
-      try { await fl.load(); return fl; }
-      catch(err){ console.warn("Layer failed to load:", url, err); return null; }
+      try{ await fl.load(); return fl; }
+      catch(e){ console.warn("Failed to load:", url, e); return null; }
     }
-    function indexFields(fields){
-      const m = {}; fields.forEach(f => m[f.name] = {alias: f.alias || f.name, type:f.type}); return m;
-    }
+    function indexFields(fields){ const m={}; fields.forEach(f=> m[f.name]={alias:f.alias||f.name,type:f.type}); return m; }
 
     async function buildRelatedRegistry(){
+      relRegistry = {};
       const rels = parcelFL.relationships || [];
-      relRegistry = {}; // reset
       for (const rel of rels){
-        const tblUrl = BASE + "/" + rel.relatedTableId;
-        const tbl = await tryLoadFeatureLayer(tblUrl);   // FeatureLayer works for tables too
+        const url = BASE + "/" + rel.relatedTableId;
+        const tbl = await safeLoadFL(url);
         if (!tbl) continue;
-        const title = (tbl.title || tbl.name || `Related ${rel.id}`);
-        const low   = title.toLowerCase();
-        const key   = low.includes("attach") ? "attachments"
-                    : low.includes("note")   ? "notes"
-                    : `rel_${rel.id}`;
+        const title = (tbl.title || tbl.name || `Related ${rel.id}`), low = title.toLowerCase();
+        const key = low.includes("attach") ? "attachments" : low.includes("note") ? "notes" : `rel_${rel.id}`;
         relRegistry[key] = { layer: tbl, rel, label: title, badgeEl: null };
-        // capture coded domain for attach_category
         if (key === "attachments"){
-          const f = tbl.fields.find(f => f.name.toLowerCase()==="attach_category");
-          if (f?.domain?.codedValues) attachDomain = f.domain.codedValues.map(cv => ({code:cv.code, name:cv.name}));
+          const f = tbl.fields.find(f=> f.name.toLowerCase()==="attach_category");
+          if (f?.domain?.codedValues) attachDomain = f.domain.codedValues.map(cv=>({code:cv.code,name:cv.name}));
         }
       }
       buildTabs();
@@ -318,18 +296,14 @@
     function buildTabs(){
       tabsEl.innerHTML = "";
       const keys = Object.keys(relRegistry);
-      if (!keys.length){
-        const t = document.createElement("div"); t.className="tab active"; t.textContent="No Related Tables";
-        tabsEl.appendChild(t); return;
-      }
+      if (!keys.length){ const t=document.createElement("div"); t.className="tab active"; t.textContent="No Related Tables"; tabsEl.appendChild(t); return; }
       keys.forEach(k=>{
-        const v = relRegistry[k];
-        const t = document.createElement("div"); t.className="tab"; t.innerHTML = `${v.label} <span class="badge">0</span>`;
-        t.addEventListener("click", ()=> setActiveTab(k));
+        const v=relRegistry[k];
+        const t=document.createElement("div"); t.className="tab"; t.innerHTML = `${v.label} <span class="badge">0</span>`;
+        t.onclick = ()=> setActiveTab(k);
         tabsEl.appendChild(t);
         v.badgeEl = t.querySelector(".badge");
       });
-      // default tab
       setActiveTab(relRegistry.notes ? "notes" : keys[0]);
     }
     function setActiveTab(key){
@@ -338,26 +312,21 @@
       renderRelated();
     }
 
-    // open/close drawer
-    openNotes.onclick  = ()=> { noteScopeField=null; openDrawer("notes"); };
-    openAttach.onclick = ()=> openDrawer("attachments");
-    closeRelated.onclick = ()=> { document.body.classList.remove("app--related-open","app--related-wide"); noteScopeField=null; resizeView(); };
-    toggleWide.onclick   = ()=> { document.body.classList.toggle("app--related-wide"); toggleWide.textContent = document.body.classList.contains("app--related-wide") ? "Collapse" : "Wide"; resizeView(); };
+    // drawer controls
+    (openNotes||{}).onclick  = ()=> { noteScopeField=null; openDrawer("notes"); };
+    (openAttach||{}).onclick = ()=> openDrawer("attachments");
+    (closeRelated||{}).onclick = ()=> { document.body.classList.remove("app--related-open","app--related-wide"); noteScopeField=null; resizeView(); };
+    (toggleWide||{}).onclick   = ()=> { document.body.classList.toggle("app--related-wide"); toggleWide.textContent = document.body.classList.contains("app--related-wide") ? "Collapse" : "Wide"; resizeView(); };
     function openDrawer(key){ if (!relRegistry[key]) return; setActiveTab(key); document.body.classList.add("app--related-open","app--related-wide"); renderRelated().then(resizeView); }
 
     // selection
-    function hitSelect(evt){
-      view.hitTest(evt).then(r=>{
-        const hit = r.results.find(x => x.graphic?.layer === parcelFL);
-        if (hit) onSelect(hit.graphic); else clearSelection();
-      });
-    }
-    function onSelect(feature){
-      selected = feature;
-      fillForm(feature);
-      highlight(feature);
+    function hitSelect(evt){ if (!parcelFL) return; view.hitTest(evt).then(r=>{ const hit=r.results.find(x=> x.graphic?.layer===parcelFL); hit ? onSelect(hit.graphic) : clearSelection(); }); }
+    function onSelect(f){
+      selected = f;
+      fillForm(f);
+      highlight(f);
       document.body.classList.add("app--parcel-selected");
-      startHint.style.display = "none"; form.style.display = "block";
+      startHint.style.display="none"; form.style.display="block";
       saveBtn.disabled = reportBtn.disabled = false;
       refreshCounts();
       if (document.body.classList.contains("app--related-open")) renderRelated().then(resizeView);
@@ -365,52 +334,48 @@
     function clearSelection(){
       highlightLayer.removeAll();
       selected = null;
-      startHint.style.display = "block"; form.style.display = "none";
+      startHint.style.display="block"; form.style.display="none";
       saveBtn.disabled = reportBtn.disabled = true;
       document.body.classList.remove("app--parcel-selected");
       relatedActions.innerHTML = ""; relatedContent.innerHTML = "";
-      Object.values(relRegistry).forEach(v => v.badgeEl && (v.badgeEl.textContent="0"));
+      Object.values(relRegistry).forEach(v=> v.badgeEl && (v.badgeEl.textContent="0"));
     }
     function fillForm(f){
-      const a = f.attributes || {};
+      const a=f.attributes||{};
       Object.entries(a).forEach(([k,v])=>{
-        const el = document.getElementById(k);
-        if (!el) return;
+        const el=document.getElementById(k); if (!el) return;
         el.value = (v==null?"": (k==="lot_area" ? (v/10000).toFixed(3) : v));
       });
     }
     function highlight(f){
       highlightLayer.removeAll();
-      highlightLayer.add(new Graphic({ geometry:f.geometry, symbol:{ type:"simple-fill", color:[0,200,0,0.25], outline:{color:"#00e0ff", width:2} }}));
+      highlightLayer.add(new Graphic({ geometry:f.geometry, symbol:{ type:"simple-fill", color:[0,200,0,0.25], outline:{ color:"#00e0ff", width:2 } }}));
       try{ view.goTo(f.geometry.extent.expand(1.2)); }catch{}
     }
 
-    // Save parcel edits
+    // save parcel edits
     saveBtn.onclick = ()=>{
       if (!selected || !parcelFL) return;
       const attrs = {...selected.attributes};
-      Object.keys(attrs).forEach(k => { const el = document.getElementById(k); if (el && !el.disabled) attrs[k] = el.value; });
-      parcelFL.applyEdits({ updateFeatures:[{ attributes: attrs }]})
+      Object.keys(attrs).forEach(k=>{ const el=document.getElementById(k); if (el && !el.disabled) attrs[k]=el.value; });
+      parcelFL.applyEdits({ updateFeatures:[{ attributes: attrs }] })
         .then(()=> alert("Saved"))
-        .catch(e => alert("Save error: "+e.message));
+        .catch(e=> alert("Save error: "+e.message));
     };
 
-    // ---------- Related / Notes / Attachments ----------
-    let selected = null;
-
+    // counts
     async function refreshCounts(){
       if (!selected) return;
       const p = selected.attributes;
       for (const [k,v] of Object.entries(relRegistry)){
-        let count = 0;
+        let count=0;
         try{
           if (k==="attachments" && relRegistry.notes){
-            // attachments via notes
             const n = await relRegistry.notes.layer.queryFeatures({
               where: `${relRegistry.notes.rel.relatedKeyField} = '${p[relRegistry.notes.rel.keyField]}'`,
               outFields:["globalid"], returnGeometry:false
             });
-            const gids = (n.features||[]).map(f=> `'${f.attributes.globalid}'`);
+            const gids=(n.features||[]).map(f=> `'${f.attributes.globalid}'`);
             count = gids.length ? await v.layer.queryFeatureCount({ where:`parent_guid IN (${gids.join(",")})` }) : 0;
           } else {
             count = await v.layer.queryFeatureCount({ where:`${v.rel.relatedKeyField} = '${p[v.rel.keyField]}'` });
@@ -422,8 +387,9 @@
       }
     }
 
+    // render
     async function renderRelated(){
-      relatedActions.innerHTML = ""; relatedContent.innerHTML = "";
+      relatedActions.innerHTML=""; relatedContent.innerHTML="";
       if (!selected || !activeTab || !relRegistry[activeTab]) return;
       const {layer:tbl, rel, label} = relRegistry[activeTab];
       const parentVal = selected.attributes[rel.keyField];
@@ -431,19 +397,18 @@
       if (activeTab==="notes") return renderNotes(tbl, rel, parentVal);
       if (activeTab==="attachments") return renderAttachments(tbl, rel, parentVal);
 
-      // generic for any extra related tables
-      const res = await tbl.queryFeatures({ where:`${rel.relatedKeyField} = '${parentVal}'`, outFields:["*"], returnGeometry:false, orderByFields:["created_date ASC"] });
+      const res = await tbl.queryFeatures({ where:`${rel.relatedKeyField}='${parentVal}'`, outFields:["*"], returnGeometry:false, orderByFields:["created_date ASC"] });
       const rows = res.features||[];
       relatedContent.innerHTML = rows.length ? "" : `<div class="card">No rows in <b>${label}</b> for this parcel.</div>`;
       rows.forEach((r,i)=>{
         const d=document.createElement("div"); d.className="card small";
-        d.innerHTML = `<strong>${label} ${i+1}</strong><pre style="white-space:pre-wrap; margin:8px 0 0 0;">${escape(JSON.stringify(r.attributes,null,2))}</pre>`;
+        d.innerHTML = `<strong>${label} ${i+1}</strong><pre style="white-space:pre-wrap; margin:8px 0 0 0;">${htmlEscape(JSON.stringify(r.attributes,null,2))}</pre>`;
         relatedContent.appendChild(d);
       });
     }
 
     async function renderNotes(tbl, rel, parentVal){
-      const res = await tbl.queryFeatures({ where:`${rel.relatedKeyField} = '${parentVal}'`, outFields:["*"], returnGeometry:false, orderByFields:["created_date ASC"] });
+      const res = await tbl.queryFeatures({ where:`${rel.relatedKeyField}='${parentVal}'`, outFields:["*"], returnGeometry:false, orderByFields:["created_date ASC"] });
       const rows = res.features||[];
       if (!rows.length){
         relatedContent.innerHTML = "<div class='card'>No notes yet for this parcel.</div>";
@@ -454,44 +419,39 @@
       const note = rows[0], nAttrs = note.attributes, pAttrs = selected.attributes;
       const pairs = buildPairs(pAttrs, nAttrs, noteScopeField);
 
-      const wrap = document.createElement("div"); wrap.className="grid";
-      const left = document.createElement("div"); left.className="col"; left.innerHTML="<h4>Parcel (read-only)</h4>";
-      pairs.forEach(p=>{ const d=document.createElement("div"); d.innerHTML=`<label>${escape(p.aliasP)}</label><div class="muted">${escape(p.pVal??"")}</div>`; left.appendChild(d); });
-
-      const right = document.createElement("div"); right.className="col"; right.innerHTML="<h4>Note (editable)</h4>";
+      const wrap=document.createElement("div"); wrap.className="grid";
+      const left=document.createElement("div"); left.className="col"; left.innerHTML="<h4>Parcel (read-only)</h4>";
+      pairs.forEach(p=>{ const d=document.createElement("div"); d.innerHTML=`<label>${htmlEscape(p.aliasP)}</label><div class="muted">${htmlEscape(p.pVal??"")}</div>`; left.appendChild(d); });
+      const right=document.createElement("div"); right.className="col"; right.innerHTML="<h4>Note (editable)</h4>";
       pairs.forEach(p=>{
         const d=document.createElement("div");
         d.innerHTML = p.long
-          ? `<label>${escape(p.aliasN)}</label><textarea data-field="${p.nField}">${escape(p.nVal??"")}</textarea>`
-          : `<label>${escape(p.aliasN)}</label><input data-field="${p.nField}" value="${escape(p.nVal??"")}" />`;
+          ? `<label>${htmlEscape(p.aliasN)}</label><textarea data-field="${p.nField}">${htmlEscape(p.nVal??"")}</textarea>`
+          : `<label>${htmlEscape(p.aliasN)}</label><input data-field="${p.nField}" value="${htmlEscape(p.nVal??"")}" />`;
         right.appendChild(d);
       });
-
-      const actions = document.createElement("div"); actions.style="margin-top:10px; text-align:right;";
-      const save = document.createElement("button"); save.className="btn"; save.textContent="Save Note";
+      const actions=document.createElement("div"); actions.style="margin-top:10px; text-align:right;";
+      const save=document.createElement("button"); save.className="btn"; save.textContent="Save Note";
       save.onclick = async ()=>{
-        const edits = {...nAttrs};
+        const edits={...nAttrs};
         right.querySelectorAll("[data-field]").forEach(el=> edits[el.getAttribute("data-field")] = el.value);
-        try{
-          const r = await tbl.applyEdits({ updateFeatures:[{ attributes: edits }]});
-          if (r.updateFeatureResults?.[0]?.objectId) alert("Note saved");
-          refreshCounts();
-        }catch(e){ alert("Save error: "+e.message); }
+        try{ await tbl.applyEdits({ updateFeatures:[{ attributes: edits }] }); alert("Note saved"); refreshCounts(); }
+        catch(e){ alert("Save error: "+e.message); }
       };
       actions.appendChild(save);
 
       wrap.appendChild(left); wrap.appendChild(right);
       relatedContent.appendChild(wrap); relatedContent.appendChild(actions);
 
-      // History (scoped)
-      const hist = document.createElement("div"); hist.className="list";
-      const histTitle = document.createElement("div"); histTitle.className="card";
+      // History
+      const hist=document.createElement("div"); hist.className="list";
+      const histTitle=document.createElement("div"); histTitle.className="card";
       const fieldsForHistory = scopeToNoteFields(noteScopeField, tbl);
-      histTitle.innerHTML = `<strong>History${noteScopeField?` — ${escape(parcelFields[noteScopeField]?.alias||noteScopeField)`:``}</strong>`;
+      histTitle.innerHTML = `<strong>History${noteScopeField?` — ${htmlEscape(parcelFields[noteScopeField]?.alias||noteScopeField)`:``}</strong>`;
       hist.appendChild(histTitle);
       rows.forEach((r,i)=>{
         const a=r.attributes; let body="";
-        fieldsForHistory.forEach(fn=>{ if (fn in a) body += `<div><b>${escape(fn)}:</b> ${escape(a[fn]??"")}</div>`; });
+        fieldsForHistory.forEach(fn=>{ if (fn in a) body += `<div><b>${htmlEscape(fn)}:</b> ${htmlEscape(a[fn]??"")}</div>`; });
         if (!body) return;
         const c=document.createElement("div"); c.className="card small";
         c.innerHTML = `<div class="muted">Row ${i+1}</div>${body}`;
@@ -511,30 +471,25 @@
     }
 
     async function renderAttachments(tbl, rel, parentVal){
-      // find notes first
       const nRel = relRegistry.notes; if (!nRel){ relatedContent.innerHTML="<div class='card'>Notes table not found.</div>"; return; }
       const ns = await nRel.layer.queryFeatures({ where:`${nRel.rel.relatedKeyField}='${parentVal}'`, outFields:["globalid"], returnGeometry:false });
-      const gids = (ns.features||[]).map(f=> `'${f.attributes.globalid}'`);
-      if (!gids.length){ relatedContent.innerHTML = "<div class='card'>No notes yet; add a Note first.</div>"; return; }
+      const gids=(ns.features||[]).map(f=> `'${f.attributes.globalid}'`);
+      if (!gids.length){ relatedContent.innerHTML="<div class='card'>No notes yet; add a Note first.</div>"; return; }
       const res = await tbl.queryFeatures({ where:`parent_guid IN (${gids.join(",")})`, outFields:["*"], returnGeometry:false, orderByFields:["created_date ASC"] });
       const rows = res.features||[];
       if (!rows.length){ relatedContent.innerHTML="<div class='card'>No attachments yet.</div>"; }
-      rows.forEach((r,i)=>{
+      rows.forEach((r)=>{
         const a=r.attributes;
         const card=document.createElement("div"); card.className="card small";
-        // name
-        const f1=document.createElement("div"); f1.innerHTML=`<label>Attachment name</label><input data-field="attach_name" value="${escape(a.attach_name??"")}" />`;
-        // category
+        const f1=document.createElement("div"); f1.innerHTML=`<label>Attachment name</label><input data-field="attach_name" value="${htmlEscape(a.attach_name??"")}" />`;
         const f2=document.createElement("div");
-        let opts = attachDomain.map(cv=>`<option value="${escape(cv.code)}"${cv.code===a.attach_category?" selected":""}>${escape(cv.name)}</option>`).join("");
-        if (!opts) opts = `<option value="${escape(a.attach_category??"")}" selected>${escape(a.attach_category??"")}</option>`;
+        let opts = attachDomain.map(cv=>`<option value="${htmlEscape(cv.code)}"${cv.code===a.attach_category?" selected":""}>${htmlEscape(cv.name)}</option>`).join("");
+        if (!opts) opts = `<option value="${htmlEscape(a.attach_category??"")}" selected>${htmlEscape(a.attach_category??"")}</option>`;
         f2.innerHTML = `<label>Category</label><select data-field="attach_category">${opts}</select>`;
-        // parent
-        const f3=document.createElement("div"); f3.innerHTML=`<label>Parent Note GUID</label><div class="muted">${escape(a.parent_guid??"")}</div>`;
-        // actions
+        const f3=document.createElement("div"); f3.innerHTML=`<label>Parent Note GUID</label><div class="muted">${htmlEscape(a.parent_guid??"")}</div>`;
         const actions=document.createElement("div"); actions.style="margin-top:8px; text-align:right;";
         const save=document.createElement("button"); save.className="btn"; save.textContent="Save";
-        save.onclick=()=>{
+        save.onclick = ()=> {
           const edits={...a};
           edits.attach_name = card.querySelector('[data-field="attach_name"]').value;
           edits.attach_category = card.querySelector('[data-field="attach_category"]').value;
@@ -562,30 +517,25 @@
       };
     }
 
-    // pairing
     function buildPairs(pAttrs, nAttrs, scope){
-      const pairs=[]; const add=(p,n)=>{
-        const long = /notes?|desc|plan|summary|comment|constraint/i.test(n);
-        pairs.push({ pField:p, nField:n, aliasP:(parcelFields[p]?.alias||p), aliasN:n, pVal:pAttrs[p], nVal:nAttrs[n], long });
-      };
-      const addFor=(base)=>{ if (base in nAttrs && base in pAttrs) add(base,base); if ((base+"_notes") in nAttrs && base in pAttrs) add(base, base+"_notes"); };
+      const pairs=[]; const add=(p,n)=>{ const long=/notes?|desc|plan|summary|comment|constraint/i.test(n); pairs.push({ pField:p, nField:n, aliasP:(parcelFields[p]?.alias||p), aliasN:n, pVal:pAttrs[p], nVal:nAttrs[n], long }); };
+      const addFor=(base)=>{ if (base in nAttrs && base in pAttrs) add(base,base); if ((base+"_notes") in nAttrs && base in pAttrs) add(base,base+"_notes"); };
       if (scope){
         addFor(scope);
-        if ("s16_lotplan" in nAttrs && "lotplan" in pAttrs) pairs.unshift({ pField:"lotplan", nField:"s16_lotplan", aliasP:parcelFields["lotplan"]?.alias||"Lot/Plan", aliasN:"Lot/Plan (Note)", pVal:pAttrs.lotplan, nVal:nAttrs.s16_lotplan, long:false });
+        if ("s16_lotplan" in nAttrs && "lotplan" in pAttrs) pairs.unshift({ pField:"lotplan", nField:"s16_lotplan", aliasP:(parcelFields["lotplan"]?.alias||"Lot/Plan"), aliasN:"Lot/Plan (Note)", pVal:pAttrs.lotplan, nVal:nAttrs.s16_lotplan, long:false });
         return pairs;
       }
       Object.keys(nAttrs).forEach(nf=>{ if (!/^(objectid|globalid|parcelguid|created_|last_edited)/i.test(nf) && (nf in pAttrs)) add(nf,nf); });
       Object.keys(nAttrs).forEach(nf=>{ if (!pairs.find(p=>p.nField===nf)){ const base=nf.replace(/_?notes?$/i,""); if (base && (base in pAttrs)) add(base,nf); }});
-      if (!pairs.find(p=>p.pField==="lotplan") && ("s16_lotplan" in nAttrs)) pairs.unshift({ pField:"lotplan", nField:"s16_lotplan", aliasP:parcelFields["lotplan"]?.alias||"Lot/Plan", aliasN:"Lot/Plan (Note)", pVal:pAttrs.lotplan, nVal:nAttrs.s16_lotplan, long:false });
+      if (!pairs.find(p=>p.pField==="lotplan") && ("s16_lotplan" in nAttrs)) pairs.unshift({ pField:"lotplan", nField:"s16_lotplan", aliasP:(parcelFields["lotplan"]?.alias||"Lot/Plan"), aliasN:"Lot/Plan (Note)", pVal:pAttrs.lotplan, nVal:nAttrs.s16_lotplan, long:false });
       return pairs;
     }
     function scopeToNoteFields(base, tbl){
       if (!base) return [];
-      const has = n => !!tbl.fields.find(f=>f.name===n);
+      const has = (n)=> !!tbl.fields.find(f=>f.name===n);
       const arr=[]; if (has(base)) arr.push(base); if (has(base+"_notes")) arr.push(base+"_notes"); return arr.length?arr:[base];
     }
 
-    // mini 📝 buttons
     function installFieldNoteButtons(){
       NOTE_FIELDS.forEach(fid=>{
         const input = document.getElementById(fid); if (!input) return;
@@ -596,10 +546,10 @@
       });
     }
 
-    // helpers
-    function escape(s){ return (s==null?"":String(s)).replace(/[&<>"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m])); }
+    // HTML escape helper (renamed to avoid clashing with window.escape)
+    function htmlEscape(s){ return (s==null?"":String(s)).replace(/[&<>"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m])); }
 
-    // keep map alive on layout changes
+    // keep map healthy when layout shifts
     const ro = new ResizeObserver(()=> resizeView());
     ro.observe(document.getElementById("infoPane"));
     ro.observe(document.getElementById("relatedPane"));
