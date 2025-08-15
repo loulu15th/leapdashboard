@@ -2,535 +2,335 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>LEAP Section 16 Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LEAP — Feature Form Editor</title>
   <link rel="stylesheet" href="https://js.arcgis.com/4.29/esri/themes/light/main.css" />
   <style>
-    :root{
-      --info-width: 380px;
-      --related-width: 360px;
-      --related-wide: 46vw;
+    :root {
+      --bg: #f6f7f9;
+      --card: #ffffff;
+      --ink: #222;
+      --muted: #6b7280;
+      --brand: #0ea5e9;
+      --border: #e5e7eb;
+      --shadow: 0 10px 30px rgba(0,0,0,0.08);
     }
-    html, body, #container { margin:0; padding:0; height:100%; }
-    #container { display:flex; font-family:Arial,sans-serif; }
-
-    /* Map */
-    #mapPane { position:relative; flex:1; min-width:360px; }
-    #viewDiv { position:absolute; inset:0; }
-    #svcWarn{
-      position:absolute; top:10px; left:10px; z-index:5;
-      background:#fff4d6; border:1px solid #f0c36d; border-radius:6px;
-      padding:6px 10px; font-size:.9em; display:none;
-    }
-
-    /* Assessment panel (your original) */
-    #infoPane {
-      width:var(--info-width);
-      background:#f5f5f5;
-      overflow-y:auto;
-      padding:20px;
-      box-sizing:border-box;
-      border-left:1px solid #e8e8e8;
-    }
-    #infoPane h2 { margin-top:0; color:#003087; }
-    #infoPane h3 {
-      margin:16px 0 8px;
-      font-size:1.1em;
-      font-weight:normal;
-      color:#003087;
-      display:flex; align-items:center; gap:8px;
-    }
-    .assessment-table { width:100%; border-collapse:collapse; }
-    .assessment-table th { text-align:left; padding:4px 8px; vertical-align:top; font-weight:normal; width:34%; }
-    .assessment-table td { padding:4px 8px; vertical-align:top; }
-    .assessment-table input, .assessment-table textarea {
-      width:100%; box-sizing:border-box;
-      padding:6px 8px; font-size:0.95em; border:1px solid #ccc; border-radius:4px; background:#fff;
-    }
-    .assessment-table textarea { resize:vertical; min-height:60px; }
-    .btn { background:#003087; color:#fff; border:none; padding:6px 12px; border-radius:4px; cursor:pointer; }
-    .btn:disabled { background:#aaa; cursor:not-allowed; }
-    .pill { border:1px solid #c9c9c9; background:#fff; border-radius:999px; padding:3px 10px; font-size:.9em; cursor:pointer; }
-    .badge { display:inline-block; min-width:18px; height:18px; line-height:18px; text-align:center; font-size:.75em; border-radius:9px; background:#eee; border:1px solid #bbb; margin-left:6px; }
-
-    /* Related drawer (new DOM that your script expects) */
-    #relatedPane{
-      width:var(--related-width); max-width:100vw;
-      background:#fff; border-left:1px solid #e8e8e8;
-      display:none; padding:12px; box-sizing:border-box; overflow:auto;
-    }
-    .open-related #relatedPane{ display:block; }
-    .wide-related #relatedPane{ width:var(--related-wide); }
-
-    #relatedHead{ display:flex; align-items:center; justify-content:space-between; gap:6px; }
-    .tabs{ display:flex; gap:8px; margin:10px 0 12px; flex-wrap:wrap; }
-    .tab{ padding:6px 10px; border:1px solid #c9c9c9; border-radius:999px; background:#f8f8f8; cursor:pointer; display:inline-flex; align-items:center; gap:6px; }
-    .tab.active{ background:#fff; border-color:#888; }
-    .list{ display:flex; flex-direction:column; gap:10px; }
-    .card{ border:1px solid #eee; border-radius:8px; padding:10px; }
-    .grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-    .grid .col{ border:1px solid #eee; border-radius:8px; padding:10px; }
-    .grid .col h4{ margin:0 0 8px; font-size:1em; color:#003087; }
-    .mini-note{ margin-left:6px; font-size:.85em; padding:1px 8px; border:1px solid #c9c9c9; border-radius:999px; cursor:pointer; background:#fff; }
-    .mini-note:hover{ background:#f2f6ff; border-color:#7aa2ff; }
+    html, body { height:100%; margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial; color: var(--ink); background: var(--bg); }
+    .app { display:grid; grid-template-rows: auto 1fr; height:100%; }
+    header { display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:0.8rem 1rem; background:var(--card); border-bottom:1px solid var(--border); position:sticky; top:0; z-index:20; }
+    header h1 { font-size:1.05rem; margin:0; font-weight:700; }
+    .pill { display:inline-flex; align-items:center; gap:0.5rem; padding:0.35rem 0.6rem; border:1px solid var(--border); border-radius:999px; background:#fff; color:#111; font-size:0.85rem; }
+    .layout { display:grid; grid-template-columns: minmax(420px, 1fr) 460px; gap:12px; padding:12px; height: calc(100vh - 58px); }
+    .card { background:var(--card); border:1px solid var(--border); border-radius:16px; box-shadow: var(--shadow); overflow:hidden; display:flex; flex-direction:column; }
+    #map { width:100%; height:100%; }
+    .panel { display:flex; flex-direction:column; height:100%; }
+    .panel-header { padding:12px; border-bottom:1px solid var(--border); display:grid; gap:8px; background:linear-gradient(180deg,#fff, #fafafa); }
+    .row { display:flex; gap:8px; align-items:center; }
+    input[type="text"] { flex:1; padding:10px 12px; border:1px solid var(--border); border-radius:10px; font-size:0.95rem; }
+    button, .btn { border:1px solid var(--border); background:#fff; padding:9px 12px; border-radius:10px; cursor:pointer; font-weight:600; }
+    button.primary { background: var(--brand); color:#fff; border-color: transparent; }
+    button.ghost { background: transparent; }
+    button:disabled { opacity:0.6; cursor:not-allowed; }
+    .suggest { position:relative; }
+    .suggest-list { position:absolute; top:42px; left:0; right:0; background:#fff; border:1px solid var(--border); border-radius:10px; box-shadow: var(--shadow); max-height:240px; overflow:auto; z-index:40; }
+    .suggest-item { padding:8px 12px; cursor:pointer; }
+    .suggest-item:hover { background:#f1f5f9; }
+    .panel-body { padding:12px; overflow:auto; display:grid; gap:14px; height:100%; }
+    .section { border:1px dashed var(--border); border-radius:12px; padding:10px; }
+    .section h3 { margin:4px 0 10px; font-size:0.95rem; }
+    .hint { color:var(--muted); font-size:0.85rem; }
+    .links { display:flex; gap:8px; flex-wrap:wrap; }
+    .log { font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; background:#0b1020; color:#d1d5db; border-radius:10px; padding:10px; max-height:150px; overflow:auto; }
+    .footer { padding:10px 12px; border-top:1px solid var(--border); background:#fff; display:flex; gap:8px; justify-content:flex-end; }
+    .badge { display:inline-flex; align-items:center; gap:6px; background:#eef6ff; color:#0b63b6; border:1px solid #cfe3ff; font-size:0.8rem; padding:6px 10px; border-radius:999px; }
+    .divider { height:1px; background:var(--border); margin:8px 0; }
+    #formDiv .esri-feature-form { --esri-widget-border: 1px solid #e5e7eb; --esri-widget-border-radius: 12px; }
+    #attachments { min-height:120px; border-radius:12px; border:1px solid var(--border); padding:8px; }
+    details summary { cursor:pointer; font-weight:600; }
   </style>
 </head>
 <body>
-  <div id="container">
-    <div id="mapPane">
-      <div id="svcWarn">Service not reachable yet. Map is usable; related data will appear when it loads.</div>
-      <div id="viewDiv"></div>
-    </div>
-
-    <div id="infoPane">
-      <h2>Section 16 Assessment</h2>
-      <p id="startHint">Select a parcel on the map or search a Lot/Plan to begin.</p>
-
-      <div id="formFields" style="display:none;">
-        <!-- Parcel Details -->
-        <h3>Parcel Details</h3>
-        <table class="assessment-table">
-          <tr><th>Lot/Plan</th>                 <td><input id="lotplan"     disabled /></td></tr>
-          <tr><th>Lot</th>                      <td><input id="lot"         disabled /></td></tr>
-          <tr><th>Plan</th>                     <td><input id="plan"        disabled /></td></tr>
-          <tr><th>Survey Indicator</th>         <td><input id="surv_ind"    disabled /></td></tr>
-          <tr><th>Title Reference</th>          <td><input id="title_ref"             /></td></tr>
-          <tr><th>Property Address</th>         <td><input id="prop_addr"             /></td></tr>
-          <tr><th>Area (ha)</th>                <td><input id="lot_area_c"            /></td></tr>
-          <tr><th>Tenure</th>                   <td><input id="tenure"       disabled /></td></tr>
-          <tr><th>Registered Owner/Trustee</th> <td><input id="reg_owner"            /></td></tr>
-          <tr><th>Local Government Area</th>    <td><input id="shire_name"   disabled /></td></tr>
-        </table>
-
-        <!-- Administrative Attributes -->
-        <h3>Administrative Attributes</h3>
-        <table class="assessment-table">
-          <tr><th>Access (Legal)</th>       <td><input id="access_l"    /></td></tr>
-          <tr><th>Access (Practical)</th>   <td><input id="access_p"    /></td></tr>
-          <tr><th>Registered Interests</th> <td><input id="ciram_chk"   /></td></tr>
-          <tr><th>Current Valuation</th>    <td><input id="qvas_val"    /></td></tr>
-          <tr><th>eLVAS Cases</th>          <td><input id="elvas_ref"   /></td></tr>
-        </table>
-
-        <!-- Site History & Background -->
-        <h3>
-          Site History &amp; Background
-          <span class="pill" id="openNotes">Notes <span class="badge" id="badgeNotes">0</span></span>
-        </h3>
-        <table class="assessment-table">
-          <tr><th>Native Title Status</th>      <td><input id="nt_status"      /></td></tr>
-          <tr><th>Indigenous Cult Heritage</th> <td><input id="ind_cul_he"     /></td></tr>
-          <tr><th>Qld Cult Heritage</th>        <td><input id="qld_cul_he"     /></td></tr>
-          <tr><th>Historical Tenure</th>        <td><input id="ten_hist"       /></td></tr>
-        </table>
-
-        <!-- Physical, Biological & Economic -->
-        <h3>Physical, Biological &amp; Economic</h3>
-        <table class="assessment-table">
-          <tr><th>Parcel Type</th>    <td><input id="parcel_typ"         /></td></tr>
-          <tr><th>Cover Type</th>     <td><input id="cover_typ"          /></td></tr>
-          <tr>
-            <th>Plan Constraints</th>
-            <td>
-              <textarea id="plan_const"></textarea>
-              <span class="pill" id="openAttach">Attachments <span class="badge" id="badgeAttach">0</span></span>
-            </td>
-          </tr>
-          <tr><th>MAUT Use</th>       <td><input id="mau"                /></td></tr>
-          <tr><th>Past Material</th>  <td><input id="p_mat"              /></td></tr>
-          <tr><th>Mining Interest</th><td><input id="mine_int"           /></td></tr>
-          <tr><th>EPM App/Grant</th>  <td><input id="epm_app" /><br/><input id="epm_granted" placeholder="Granted" /></td></tr>
-          <tr><th>ML Permit App/Grant</th><td><input id="ml_permit_app" /><br/><input id="ml_granted" placeholder="Granted" /></td></tr>
-          <tr><th>Exploration Permit</th> <td><input id="appln_int"      /></td></tr>
-        </table>
-
-        <!-- Environment & Planning -->
-        <h3>Environment &amp; Planning</h3>
-        <table class="assessment-table">
-          <tr><th>Contaminated Land</th>  <td><input id="contam_lan"     /></td></tr>
-          <tr><th>Stock Route</th>        <td><input id="stk_route"      /></td></tr>
-          <tr><th>State Plan Policy</th>  <td><input id="plan_schem"     /></td></tr>
-          <tr><th>Regional Plan</th>      <td><textarea id="regional_plan"></textarea></td></tr>
-          <tr><th>Flood Hazard</th>       <td><input id="flooding"       /></td></tr>
-          <tr><th>Bushfire Hazard</th>    <td><input id="bushfire"       /></td></tr>
-          <tr><th>Coastal Management</th> <td><input id="coastal_mgmt"   /></td></tr>
-          <tr><th>Veg Mgmt Categories</th><td><input id="veg_mgmt_cat"   /></td></tr>
-          <tr><th>Veg Mgmt Reg Ecos</th>  <td><input id="veg_mgmt_reg_eco"/></td></tr>
-        </table>
-
-        <!-- Social & Cultural -->
-        <h3>Social &amp; Cultural Attributes</h3>
-        <table class="assessment-table">
-          <tr><th>Heritage Mgmt Plan</th><td><textarea id="cul_mgmt_plan"></textarea></td></tr>
-          <tr><th>Study Area Bdy</th>    <td><textarea id="cul_studyarea_bdy"></textarea></td></tr>
-          <tr><th>Party</th>            <td><input id="cul_party" /></td></tr>
-        </table>
-
-        <div style="margin-top:12px; text-align:right;">
-          <button id="saveBtn" class="btn" disabled>Save</button>
-          <button id="reportBtn" class="btn" disabled>Report</button>
+  <div class="app">
+    <header>
+      <h1>LEAP — Section 16 Editor (Map + Feature Form + Attachments)</h1>
+      <span class="pill">ArcGIS JS 4.29 • Works with hosted Feature Layers</span>
+    </header>
+    <div class="layout">
+      <div class="card"><div id="map"></div></div>
+      <div class="card panel">
+        <div class="panel-header">
+          <div class="row">
+            <div class="suggest" style="flex:1">
+              <input id="lotplanInput" type="text" placeholder="Search by Lot/Plan (e.g. 45SP164230)" autocomplete="off"/>
+              <div id="suggestList" class="suggest-list" style="display:none"></div>
+            </div>
+            <button id="btnFind" class="primary">Find</button>
+            <button id="btnClear" class="ghost">Clear</button>
+          </div>
+          <div class="row" style="justify-content:space-between">
+            <span class="badge" id="selBadge">No feature selected</span>
+            <div class="links">
+              <a class="btn" target="_blank" href="https://sppims-dams.dsdilgp.qld.gov.au/spp/?tab=layers">SPP Viewer</a>
+              <a class="btn" target="_blank" href="https://qldglobe.information.qld.gov.au/">QLD Globe</a>
+              <button id="btnToggleEditor" class="btn">Advanced Editor</button>
+            </div>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="section">
+            <h3>Feature Form</h3>
+            <div id="formDiv"></div>
+            <div class="hint">Tip: cadastral fields can be set read‑only below in the config.</div>
+          </div>
+          <div class="section">
+            <h3>Attachments</h3>
+            <div id="attachments"></div>
+            <div class="hint">Add site photos or documents here. Accepted file types follow your layer settings.</div>
+          </div>
+          <div class="section">
+            <details>
+              <summary>Related records & geometry (Editor)</summary>
+              <div id="editor" style="margin-top:8px"></div>
+              <div class="hint">Use the Editor to add related table rows or update geometry. Your form edits above stay intact.</div>
+            </details>
+          </div>
+          <div class="section">
+            <h3>Status</h3>
+            <div id="log" class="log"></div>
+          </div>
+        </div>
+        <div class="footer">
+          <button id="btnReset">Reset changes</button>
+          <button id="btnSave" class="primary" disabled>Save</button>
         </div>
       </div>
-    </div>
-
-    <!-- Related drawer (required by the script) -->
-    <div id="relatedPane">
-      <div id="relatedHead">
-        <strong>Related</strong>
-        <div style="display:flex; gap:6px;">
-          <button id="toggleWide" class="btn" style="background:#28559a">Wide</button>
-          <button id="closeRelated" class="btn" style="background:#666">Close</button>
-        </div>
-      </div>
-      <div id="tabs" class="tabs"></div>
-      <div id="relatedActions" style="margin-bottom:10px;"></div>
-      <div id="relatedContent" class="list"></div>
     </div>
   </div>
 
   <script src="https://js.arcgis.com/4.29/"></script>
   <script>
-  // run AFTER the DOM exists so #viewDiv is present
-  window.addEventListener("DOMContentLoaded", function(){
-
-  require([
-  "esri/config",
-  "esri/Map",
-  "esri/views/MapView",
-  "esri/layers/FeatureLayer",
-  "esri/layers/GraphicsLayer",
-  "esri/Graphic",
-  "esri/widgets/Zoom",
-  "esri/widgets/Search"
-], function(esriConfig, Map, MapView, FeatureLayer, GraphicsLayer, Graphic, Zoom, Search) {
-
-  // trust your UAT domain for token/credential handshakes
-  esriConfig.request.trustedServers.push("uat-qportal.information.qld.gov.au");
-
-    // Use OSM so the map renders even when AGOL basemaps are blocked
-const map = new Map({ basemap: "osm" });
-
-const view = new MapView({
-  container: "viewDiv",
-  map,
-  zoom: 6,
-  center: [145, -24]
-});
-
-// Try to switch to Imagery; if it fails we stay on OSM
-try { map.basemap = "satellite"; } catch (e) {}
-
-// If the basemap fails to create, immediately revert to OSM so the map shows
-view.on("layerview-create-error", (evt) => {
-  const isBasemap = evt?.layer?.type === "tile" || (evt?.layer?.id || "").includes("base");
-  if (isBasemap) {
-    console.warn("Basemap failed; switching to OSM.", evt?.error);
-    map.basemap = "osm";
-  }
-});
-
-// keep your zoom widget
-view.when(() => {
-  view.ui.remove("zoom");
-  view.ui.add(new Zoom({ view }), "top-left");
-});
-
-
-  parcelFL = await safeLoadFL(PARCEL_URL);
-if (!parcelFL){
-  if (svcWarn) {
-    svcWarn.textContent =
-      "Parcel service is unreachable (network/login). Map is usable; related data will appear once it connects.";
-    svcWarn.style.display = "block";
-  }
-  return;
-}
-
-    async function buildRelatedRegistry(){
-      if (!tabsEl) return; // if drawer markup removed, skip UI
-      relRegistry = {};
-      const rels = parcelFL.relationships || [];
-      for (const rel of rels){
-        const url = BASE + "/" + rel.relatedTableId;
-        const tbl = await safeLoadFL(url);
-        if (!tbl) continue;
-        const title = (tbl.title || tbl.name || `Related ${rel.id}`).trim();
-        const low = title.toLowerCase();
-        const key = low.includes("attach") ? "attachments" : low.includes("note") ? "notes" : `rel_${rel.id}`;
-        relRegistry[key] = { layer: tbl, rel, label: title, badgeEl: null };
-        if (key==="attachments"){
-          const f = tbl.fields.find(f=> f.name.toLowerCase()==="attach_category");
-          if (f?.domain?.codedValues) attachDomain = f.domain.codedValues.map(cv=>({code:cv.code,name:cv.name}));
-        }
+    // ==========================
+    // CONFIG — tailor these
+    // ==========================
+    const CONFIG = {
+      LAYER_URL: "https://services8.arcgis.com/N9pWXvW1bA4UHL2O/arcgis/rest/services/ClaimParcels_vegtest/FeatureServer/1", // UAT Layer 1
+      READONLY_FIELDS: [ /* e.g., "lotplan", "plan", "lot", fields 1–9 etc */ ],
+      // If your lot/plan field isn't obvious, we'll try to auto-detect. You can hardcode it here:
+      LOTPLAN_FIELD_OVERRIDE: null, // e.g., "lotplan" or "Lot_Plan"
+      MAP: {
+        basemap: "gray-vector" // swap to your preferred basemap
       }
-      buildTabs();
-    }
-
-    function buildTabs(){
-      if (!tabsEl) return;
-      tabsEl.innerHTML = "";
-      const keys = Object.keys(relRegistry);
-      if (!keys.length){ const t=document.createElement("div"); t.className="tab active"; t.textContent="No Related Tables"; tabsEl.appendChild(t); return; }
-      keys.forEach(k=>{
-        const v=relRegistry[k];
-        const t=document.createElement("div"); t.className="tab";
-        t.innerHTML = `${htmlEscape(v.label)} <span class="badge">0</span>`;
-        t.onclick = ()=> setActiveTab(k);
-        tabsEl.appendChild(t);
-        v.badgeEl = t.querySelector(".badge");
-      });
-      setActiveTab(relRegistry.notes ? "notes" : keys[0]);
-    }
-    function setActiveTab(key){
-      activeTab = key;
-      if (tabsEl){
-        [...tabsEl.children].forEach(el => el.classList.toggle("active", el.textContent.startsWith(relRegistry[key]?.label)));
-      }
-      renderRelated();
-    }
-
-    // Drawer open/close
-    if (openNotes) openNotes.onclick  = ()=> { noteScopeField=null; openDrawer("notes"); };
-    if (openAttach)openAttach.onclick = ()=> openDrawer("attachments");
-    if (closeRelated) closeRelated.onclick = ()=> { document.body.classList.remove("open-related","wide-related"); noteScopeField=null; view.resize(); };
-    if (toggleWide)  toggleWide.onclick   = ()=> { document.body.classList.toggle("wide-related"); view.resize(); };
-
-    function openDrawer(key){
-      if (!relRegistry[key]) return;
-      setActiveTab(key);
-      document.body.classList.add("open-related","wide-related");
-      renderRelated().then(()=> view.resize());
-    }
-
-    // Selection
-    function hitSelect(evt){
-      if (!parcelFL) return;
-      view.hitTest(evt).then(r=>{
-        const hit = r.results.find(x=> x.graphic?.layer===parcelFL);
-        if (hit) onSelect(hit.graphic); else clearSelection();
-      });
-    }
-    function onSelect(f){
-      selected = f;
-      fillForm(f);
-      highlight(f);
-      startHint.style.display="none"; form.style.display="block";
-      saveBtn.disabled = reportBtn.disabled = false;
-      refreshCounts();
-      if (document.body.classList.contains("open-related")) renderRelated().then(()=> view.resize());
-    }
-    function clearSelection(){
-      highlightLayer.removeAll();
-      selected=null;
-      startHint.style.display="block"; form.style.display="none";
-      saveBtn.disabled = reportBtn.disabled = true;
-      if (relatedActions) relatedActions.innerHTML="";
-      if (relatedContent) relatedContent.innerHTML="";
-      Object.values(relRegistry).forEach(v=> v.badgeEl && (v.badgeEl.textContent="0"));
-    }
-    function fillForm(f){
-      const a=f.attributes||{};
-      Object.entries(a).forEach(([k,v])=>{
-        const el=document.getElementById(k); if (!el) return;
-        el.value = (v==null?"": (k==="lot_area" ? (v/10000).toFixed(3) : v));
-      });
-    }
-    function highlight(f){
-      highlightLayer.removeAll();
-      highlightLayer.add(new Graphic({ geometry:f.geometry, symbol:{ type:"simple-fill", color:[0,200,0,0.25], outline:{ color:"#00e0ff", width:2 } }}));
-      try{ view.goTo(f.geometry.extent.expand(1.2)); }catch{}
-    }
-
-    // Save edits
-    saveBtn.onclick = ()=>{
-      if (!selected || !parcelFL) return;
-      const attrs = {...selected.attributes};
-      Object.keys(attrs).forEach(k=>{ const el=document.getElementById(k); if (el && !el.disabled) attrs[k]=el.value; });
-      parcelFL.applyEdits({ updateFeatures:[{ attributes: attrs }] })
-        .then(()=> alert("Saved"))
-        .catch(e=> alert("Save error: "+e.message));
     };
 
-    // Counts on badges
-    async function refreshCounts(){
-      if (!selected) return;
-      const p = selected.attributes;
-      for (const [k,v] of Object.entries(relRegistry)){
-        let count=0;
-        try{
-          if (k==="attachments" && relRegistry.notes){
-            const n = await relRegistry.notes.layer.queryFeatures({
-              where: `${relRegistry.notes.rel.relatedKeyField}='${p[relRegistry.notes.rel.keyField]}'`,
-              outFields:["globalid"], returnGeometry:false
-            });
-            const gids=(n.features||[]).map(f=> `'${f.attributes.globalid}'`);
-            count = gids.length ? await v.layer.queryFeatureCount({ where:`parent_guid IN (${gids.join(",")})` }) : 0;
-          } else {
-            count = await v.layer.queryFeatureCount({ where:`${v.rel.relatedKeyField}='${p[v.rel.keyField]}'` });
+    // ===============
+    // ArcGIS JS app
+    // ===============
+    require([
+      "esri/Map",
+      "esri/views/MapView",
+      "esri/layers/FeatureLayer",
+      "esri/widgets/FeatureForm",
+      "esri/widgets/Editor",
+      "esri/widgets/AttachmentEditor",
+      "esri/core/reactiveUtils",
+      "esri/rest/support/Query"
+    ], (Map, MapView, FeatureLayer, FeatureForm, Editor, AttachmentEditor, reactiveUtils, Query) => {
+      const log = (msg) => {
+        const el = document.getElementById("log");
+        const time = new Date().toLocaleTimeString();
+        el.textContent = `[${time}] ${msg}\n` + el.textContent;
+      };
+
+      const map = new Map({ basemap: CONFIG.MAP.basemap });
+      const view = new MapView({ container: "map", map, center: [153.03, -27.47], zoom: 10 }); // Brisbane-ish
+
+      const layer = new FeatureLayer({ url: CONFIG.LAYER_URL, outFields: ["*"], popupEnabled: true });
+      map.add(layer);
+
+      let lotplanField = null;
+      let highlightHandle = null;
+      let selectedFeature = null; // Graphic
+      let originalAttributes = null; // for reset
+
+      const form = new FeatureForm({ container: "formDiv" });
+      const ae = new AttachmentEditor({ container: "attachments", view });
+
+      // Editor for advanced tasks (related records, geometry)
+      const editor = new Editor({
+        view,
+        allowedWorkflows: ["update"],
+        layerInfos: [{ layer, disableAttributeUpdates: true }] // keep attributes via our form
+      });
+      document.getElementById("editor").appendChild(editor.domNode);
+
+      // Detect lot/plan field
+      async function detectLotplanField() {
+        if (CONFIG.LOTPLAN_FIELD_OVERRIDE) return CONFIG.LOTPLAN_FIELD_OVERRIDE;
+        await layer.load();
+        const candidates = layer.fields.filter(f => {
+          const n = (f.name || "").toLowerCase();
+          const a = (f.alias || "").toLowerCase();
+          return /lot.?plan/.test(n) || /lot.?plan/.test(a) || (/^lot$/.test(n) || /^plan$/.test(n));
+        });
+        return candidates.length ? candidates[0].name : layer.objectIdField; // fallback
+      }
+
+      // Build FeatureForm config with read-only handling
+      async function buildForm() {
+        await layer.load();
+        const roSet = new Set((CONFIG.READONLY_FIELDS || []).map(s => s.toLowerCase()));
+        const fieldConfig = layer.fields
+          .filter(f => !f.type?.startsWith("oid") && f.name !== layer.objectIdField && !/^shape/i.test(f.name) && !/^globalid$/i.test(f.name))
+          .map(f => ({
+            name: f.name,
+            label: f.alias || f.name,
+            editable: !roSet.has(f.name.toLowerCase()) && f.editable !== false,
+            visibilityExpression: null
+          }));
+        form.layer = layer;
+        form.groupDisplay = "sequential";
+        form.fieldConfig = fieldConfig;
+      }
+
+      function enableSave(enable) { document.getElementById("btnSave").disabled = !enable; }
+
+      // Apply selection to UI (form + attachments + badge + highlight)
+      async function setSelectedFeature(graphic) {
+        selectedFeature = graphic;
+        if (!graphic) {
+          form.feature = null; ae.feature = null; enableSave(false);
+          document.getElementById("selBadge").textContent = "No feature selected";
+          if (highlightHandle) { highlightHandle.remove(); highlightHandle = null; }
+          return;
+        }
+        form.feature = graphic;
+        ae.feature = graphic;
+        originalAttributes = { ...graphic.attributes };
+        enableSave(false);
+
+        // Badge text
+        const idVal = graphic.attributes[layer.objectIdField];
+        const lpVal = lotplanField && graphic.attributes[lotplanField];
+        document.getElementById("selBadge").textContent = lpVal ? `Selected: ${lpVal} (OID ${idVal})` : `Selected OID: ${idVal}`;
+
+        // Highlight
+        const lv = await view.whenLayerView(layer);
+        if (highlightHandle) highlightHandle.remove();
+        highlightHandle = lv.highlight(graphic);
+
+        // Zoom
+        if (graphic.geometry) {
+          view.goTo({ target: graphic, scale: 2000 }).catch(() => {});
+        }
+      }
+
+      // Query by lot/plan (LIKE %term%)
+      async function searchLotplan(term) {
+        if (!term) return null;
+        await layer.load();
+        const field = lotplanField || await detectLotplanField();
+        lotplanField = field;
+        const qp = new Query({ where: `UPPER(${field}) LIKE '%${term.toUpperCase().replace(/'/g, "''")}%'`, outFields: ["*"], returnGeometry: true, num: 10 });
+        const fs = await layer.queryFeatures(qp);
+        return fs.features;
+      }
+
+      // Suggestions (debounced)
+      let suggestTimer = null;
+      const input = document.getElementById("lotplanInput");
+      const suggestList = document.getElementById("suggestList");
+      function showSuggestions(list) {
+        suggestList.innerHTML = "";
+        if (!list || !list.length) { suggestList.style.display = "none"; return; }
+        list.forEach(f => {
+          const li = document.createElement("div");
+          li.className = "suggest-item";
+          const lp = lotplanField ? f.attributes[lotplanField] : f.attributes[layer.objectIdField];
+          li.textContent = lp || `OID ${f.attributes[layer.objectIdField]}`;
+          li.onclick = () => { suggestList.style.display = "none"; setSelectedFeature(f); };
+          suggestList.appendChild(li);
+        });
+        suggestList.style.display = "block";
+      }
+      input.addEventListener("input", () => {
+        clearTimeout(suggestTimer);
+        const term = input.value.trim();
+        if (!term || term.length < 2) { suggestList.style.display = "none"; return; }
+        suggestTimer = setTimeout(async () => {
+          try { const feats = await searchLotplan(term); showSuggestions(feats); }
+          catch (e) { log("Suggest error: " + e.message); }
+        }, 280);
+      });
+      document.addEventListener("click", (e) => {
+        if (!suggestList.contains(e.target) && e.target !== input) suggestList.style.display = "none";
+      });
+
+      // Map click selection
+      view.on("click", async (ev) => {
+        try {
+          const hit = await view.hitTest(ev);
+          const r = hit.results.find(r => r.graphic?.layer?.id === layer.id || r.graphic?.layer === layer);
+          if (r?.graphic) {
+            setSelectedFeature(r.graphic);
           }
-        }catch{}
-        if (v.badgeEl) v.badgeEl.textContent = count;
-        if (k==="notes" && badgeNotes) badgeNotes.textContent = count;
-        if (k==="attachments" && badgeAttach) badgeAttach.textContent = count;
-      }
-    }
-
-    // Render related areas (notes & attachments)
-    async function renderRelated(){
-      if (!selected || !activeTab || !relRegistry[activeTab] || !relatedContent) return;
-      relatedActions.innerHTML=""; relatedContent.innerHTML="";
-      const {layer:tbl, rel, label} = relRegistry[activeTab];
-      const parentVal = selected.attributes[rel.keyField];
-
-      if (activeTab==="notes") return renderNotes(tbl, rel, parentVal);
-      if (activeTab==="attachments") return renderAttachments(tbl, rel, parentVal);
-
-      const res = await tbl.queryFeatures({ where:`${rel.relatedKeyField}='${parentVal}'`, outFields:["*"], returnGeometry:false, orderByFields:["created_date ASC"] });
-      const rows = res.features||[];
-      relatedContent.innerHTML = rows.length ? "" : `<div class="card">No rows in <b>${htmlEscape(label)}</b> for this parcel.</div>`;
-      rows.forEach((r,i)=>{
-        const d=document.createElement("div"); d.className="card small";
-        d.innerHTML = `<strong>${htmlEscape(label)} ${i+1}</strong><pre style="white-space:pre-wrap; margin:8px 0 0 0;">${htmlEscape(JSON.stringify(r.attributes,null,2))}</pre>`;
-        relatedContent.appendChild(d);
+        } catch (e) { log("HitTest error: " + e.message); }
       });
-    }
 
-    async function renderNotes(tbl, rel, parentVal){
-      const res = await tbl.queryFeatures({ where:`${rel.relatedKeyField}='${parentVal}'`, outFields:["*"], returnGeometry:false, orderByFields:["created_date ASC"] });
-      const rows = res.features||[];
-      if (!rows.length){
-        relatedContent.innerHTML = "<div class='card'>No notes yet for this parcel.</div>";
-        relatedActions.innerHTML = `<button class="btn" id="addNote">New Note</button>`;
-        document.getElementById("addNote").onclick = createNote;
-        return;
-      }
-      const note = rows[0], nAttrs = note.attributes, pAttrs = selected.attributes;
-      const pairs = buildPairs(pAttrs, nAttrs, noteScopeField);
+      // Enable Save when form changes
+      form.on("value-change", () => enableSave(true));
 
-      const wrap=document.createElement("div"); wrap.className="grid";
-      const left=document.createElement("div"); left.className="col"; left.innerHTML="<h4>Parcel (read-only)</h4>";
-      pairs.forEach(p=>{ const d=document.createElement("div"); d.innerHTML=`<label>${htmlEscape(p.aliasP)}</label><div class="muted">${htmlEscape(p.pVal??"")}</div>`; left.appendChild(d); });
-      const right=document.createElement("div"); right.className="col"; right.innerHTML="<h4>Note (editable)</h4>";
-      pairs.forEach(p=>{
-        const d=document.createElement("div");
-        d.innerHTML = p.long
-          ? `<label>${htmlEscape(p.aliasN)}</label><textarea data-field="${p.nField}">${htmlEscape(p.nVal??"")}</textarea>`
-          : `<label>${htmlEscape(p.aliasN)}</label><input data-field="${p.nField}" value="${htmlEscape(p.nVal??"")}" />`;
-        right.appendChild(d);
+      // Save edits
+      document.getElementById("btnSave").addEventListener("click", async () => {
+        if (!selectedFeature) return;
+        try {
+          const updatedAttrs = form.getValues();
+          Object.entries(updatedAttrs).forEach(([k, v]) => selectedFeature.attributes[k] = v);
+          const res = await layer.applyEdits({ updateFeatures: [selectedFeature] });
+          const ok = res?.updateFeatureResults?.[0]?.error == null;
+          if (ok) { enableSave(false); log("✅ Saved changes."); }
+          else { throw new Error(res.updateFeatureResults[0].error.message); }
+        } catch (e) { log("❌ Save failed: " + e.message); }
       });
-      const actions=document.createElement("div"); actions.style="margin-top:10px; text-align:right;";
-      const save=document.createElement("button"); save.className="btn"; save.textContent="Save Note";
-      save.onclick = async ()=>{
-        const edits={...nAttrs};
-        right.querySelectorAll("[data-field]").forEach(el=> edits[el.getAttribute("data-field")] = el.value);
-        try{ await tbl.applyEdits({ updateFeatures:[{ attributes: edits }] }); alert("Note saved"); refreshCounts(); }
-        catch(e){ alert("Save error: "+e.message); }
-      };
-      actions.appendChild(save);
-      wrap.appendChild(left); wrap.appendChild(right);
-      relatedContent.appendChild(wrap); relatedContent.appendChild(actions);
 
-      // History (safe template literal)
-      const hist=document.createElement("div"); hist.className="list";
-      const histTitle=document.createElement("div"); histTitle.className="card";
-      const fieldsForHistory = scopeToNoteFields(noteScopeField, tbl);
-      histTitle.innerHTML = `<strong>History${noteScopeField ? ' — ' + htmlEscape(parcelFields[noteScopeField]?.alias || noteScopeField) : ''}</strong>`;
-      hist.appendChild(histTitle);
-      rows.forEach((r,i)=>{
-        const a=r.attributes; let body="";
-        fieldsForHistory.forEach(fn=>{ if (fn in a) body += `<div><b>${htmlEscape(fn)}:</b> ${htmlEscape(a[fn]??"")}</div>`; });
-        if (!body) return;
-        const c=document.createElement("div"); c.className="card small";
-        c.innerHTML = `<div class="muted">Row ${i+1}</div>${body}`;
-        hist.appendChild(c);
+      // Reset changes
+      document.getElementById("btnReset").addEventListener("click", () => {
+        if (!selectedFeature || !originalAttributes) return;
+        selectedFeature.attributes = { ...originalAttributes };
+        form.feature = selectedFeature; // rebind
+        enableSave(false);
+        log("↩️ Reverted unsaved changes.");
       });
-      relatedContent.appendChild(hist);
 
-      relatedActions.innerHTML = `<button class="btn" id="addNote2">New Note</button>`;
-      document.getElementById("addNote2").onclick = createNote;
-
-      function createNote(){
-        const attrs = { parcelguid: pAttrs.globalid, s16_lotplan: pAttrs.lotplan||"" };
-        tbl.applyEdits({ addFeatures:[{ attributes: attrs }] })
-          .then(()=> renderRelated().then(refreshCounts))
-          .catch(e=> alert("Create note error: "+e.message));
-      }
-    }
-
-    async function renderAttachments(tbl, rel, parentVal){
-      const nRel = relRegistry.notes; if (!nRel){ relatedContent.innerHTML="<div class='card'>Notes table not found.</div>"; return; }
-      const ns = await nRel.layer.queryFeatures({ where:`${nRel.rel.relatedKeyField}='${parentVal}'`, outFields:["globalid"], returnGeometry:false });
-      const gids=(ns.features||[]).map(f=> `'${f.attributes.globalid}'`);
-      if (!gids.length){ relatedContent.innerHTML="<div class='card'>No notes yet; add a Note first.</div>"; return; }
-      const res = await tbl.queryFeatures({ where:`parent_guid IN (${gids.join(",")})`, outFields:["*"], returnGeometry:false, orderByFields:["created_date ASC"] });
-      const rows = res.features||[];
-      if (!rows.length){ relatedContent.innerHTML="<div class='card'>No attachments yet.</div>"; }
-      rows.forEach((r)=>{
-        const a=r.attributes;
-        const card=document.createElement("div"); card.className="card small";
-        const f1=document.createElement("div"); f1.innerHTML=`<label>Attachment name</label><input data-field="attach_name" value="${htmlEscape(a.attach_name??"")}" />`;
-        const f2=document.createElement("div");
-        let opts = attachDomain.map(cv=>`<option value="${htmlEscape(cv.code)}"${cv.code===a.attach_category?" selected":""}>${htmlEscape(cv.name)}</option>`).join("");
-        if (!opts) opts = `<option value="${htmlEscape(a.attach_category??"")}" selected>${htmlEscape(a.attach_category??"")}</option>`;
-        f2.innerHTML = `<label>Category</label><select data-field="attach_category">${opts}</select>`;
-        const f3=document.createElement("div"); f3.innerHTML=`<label>Parent Note GUID</label><div class="muted">${htmlEscape(a.parent_guid??"")}</div>`;
-        const actions=document.createElement("div"); actions.style="margin-top:8px; text-align:right;";
-        const save=document.createElement("button"); save.className="btn"; save.textContent="Save";
-        save.onclick = ()=> {
-          const edits={...a};
-          edits.attach_name = card.querySelector('[data-field="attach_name"]').value;
-          edits.attach_category = card.querySelector('[data-field="attach_category"]').value;
-          tbl.applyEdits({ updateFeatures:[{ attributes: edits }]})
-            .then(()=> refreshCounts())
-            .catch(e=> alert("Update error: "+e.message));
-        };
-        actions.appendChild(save);
-        card.appendChild(f1); card.appendChild(f2); card.appendChild(f3); card.appendChild(actions);
-        relatedContent.appendChild(card);
+      // Find button
+      document.getElementById("btnFind").addEventListener("click", async () => {
+        try {
+          const term = input.value.trim();
+          const feats = await searchLotplan(term);
+          if (feats && feats.length) setSelectedFeature(feats[0]);
+          else log("No matches found.");
+        } catch (e) { log("Find error: " + e.message); }
       });
-      relatedActions.innerHTML = `<button class="btn" id="addAttach">New Attachment</button>`;
-      document.getElementById("addAttach").onclick = async ()=>{
-        const first = ns.features?.[0]?.attributes?.globalid; if (!first){ alert("No note to attach to."); return; }
-        const name = prompt("Attachment name?"); if (name==null) return;
-        const attrs = { parent_guid:first, attach_name:name, attach_category:(attachDomain[0]?.code||"") };
-        tbl.applyEdits({ addFeatures:[{ attributes: attrs }]})
-          .then(()=> renderRelated().then(refreshCounts))
-          .catch(e=> alert("Add error: "+e.message));
-      };
-    }
 
-    function buildPairs(pAttrs, nAttrs, scope){
-      const pairs=[];
-      const add=(p,n)=>{ const long=/notes?|desc|plan|summary|comment|constraint/i.test(n); pairs.push({ pField:p, nField:n, aliasP:(parcelFields[p]?.alias||p), aliasN:n, pVal:pAttrs[p], nVal:nAttrs[n], long }); };
-      const addFor=(base)=>{ if (base in nAttrs && base in pAttrs) add(base,base); if ((base+"_notes") in nAttrs && base in pAttrs) add(base,base+"_notes"); };
-      if (scope){
-        addFor(scope);
-        if ("s16_lotplan" in nAttrs && "lotplan" in pAttrs) pairs.unshift({ pField:"lotplan", nField:"s16_lotplan", aliasP:(parcelFields["lotplan"]?.alias||"Lot/Plan"), aliasN:"Lot/Plan (Note)", pVal:pAttrs.lotplan, nVal:nAttrs.s16_lotplan, long:false });
-        return pairs;
-      }
-      Object.keys(nAttrs).forEach(nf=>{ if (!/^(objectid|globalid|parcelguid|created_|last_edited)/i.test(nf) && (nf in pAttrs)) add(nf,nf); });
-      Object.keys(nAttrs).forEach(nf=>{ if (!pairs.find(p=>p.nField===nf)){ const base=nf.replace(/_?notes?$/i,""); if (base && (base in pAttrs)) add(base,nf); }});
-      if (!pairs.find(p=>p.pField==="lotplan") && ("s16_lotplan" in nAttrs)) pairs.unshift({ pField:"lotplan", nField:"s16_lotplan", aliasP:(parcelFields["lotplan"]?.alias||"Lot/Plan"), aliasN:"Lot/Plan (Note)", pVal:pAttrs.lotplan, nVal:nAttrs.s16_lotplan, long:false });
-      return pairs;
-    }
-    function scopeToNoteFields(base, tbl){
-      if (!base) return [];
-      const has = (n)=> !!tbl.fields.find(f=>f.name===n);
-      const arr=[]; if (has(base)) arr.push(base); if (has(base+"_notes")) arr.push(base+"_notes"); return arr.length?arr:[base];
-    }
-    function installFieldNoteButtons(){
-      ["plan_schem","regional_plan","qld_cul_he","nt_status","ten_hist","plan_const","cul_mgmt_plan","cul_studyarea_bdy"].forEach(fid=>{
-        const input = document.getElementById(fid); if (!input) return;
-        const th = input.closest("td")?.previousElementSibling; if (!th || th.querySelector(".mini-note")) return;
-        const btn=document.createElement("span"); btn.className="mini-note"; btn.textContent="📝"; btn.title="Notes for this field";
-        btn.onclick = ()=> { noteScopeField=fid; openDrawer("notes"); };
-        th.appendChild(btn);
+      // Clear selection
+      document.getElementById("btnClear").addEventListener("click", () => setSelectedFeature(null));
+
+      // Toggle Editor panel
+      document.getElementById("btnToggleEditor").addEventListener("click", () => {
+        const det = document.querySelector("details");
+        det.open = !det.open;
       });
-    }
-    function htmlEscape(s){ return (s==null?"":String(s)).replace(/[&<>"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m])); }
 
-  }); // require
-  }); // DOMContentLoaded
+      // Init
+      (async () => {
+        try {
+          lotplanField = await detectLotplanField();
+          await buildForm();
+          log(`Loaded layer. Lot/Plan field: ${lotplanField}`);
+        } catch (e) {
+          log("Startup error: " + e.message + " — check service URL and permissions.");
+        }
+      })();
+    });
   </script>
 </body>
 </html>
