@@ -1,337 +1,287 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <title>LEAP — Section 16 Editor (Map + Feature Form + Attachments)</title>
+  <meta charset="UTF-8" />
+  <title>LEAP Section 16 Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="https://js.arcgis.com/4.29/esri/themes/light/main.css" />
-  <script src="https://js.arcgis.com/4.29/"></script>
   <style>
-    :root { --gap: 14px; --panelW: 460px; }
-    html, body { height: 100%; margin: 0; font-family: system-ui, Segoe UI, Roboto, Arial, sans-serif; background:#f6f7f9;}
-    header { padding: 10px 14px; font-weight: 700; background:#fff; border-bottom:1px solid #e9e9e9;}
-    .app { display: grid; grid-template-columns: 1fr var(--panelW); gap: var(--gap);
-           height: calc(100vh - 48px); padding: 12px; box-sizing: border-box; }
-    #viewDiv { border: 1px solid #e3e3e3; border-radius: 12px; background:#fff;}
-    .panel { display: flex; flex-direction: column; gap: var(--gap); }
-    .card { border: 1px solid #e9e9e9; border-radius: 12px; padding: 12px; background: #fff; box-shadow:0 10px 30px rgba(0,0,0,.05);}
-    .row { display: flex; gap: 8px; align-items: center; }
-    .row input[type="text"] { flex: 1; padding: 10px 12px; border: 1px solid #ddd; border-radius: 10px; background:#fff; }
-    .btn { padding: 8px 12px; border: 0; border-radius: 10px; background: #0ea5e9; color: #fff; cursor: pointer; font-weight:600;}
-    .btn.secondary { background: #f1f3f4; color: #2a2a2a; }
-    .pill { padding: 8px 12px; border-radius: 99px; background: #f4f6f8; display: inline-block; }
-    .small { color: #666; font-size: 12px; }
-    #statusBar { height: 36px; border-radius: 10px; background: #0f172a; color: #fff; display:flex;
-                 align-items:center; padding: 0 10px; font-size: 12px; overflow: auto; white-space: nowrap; }
-    details { border: 1px dashed #e0e0e0; border-radius: 10px; padding: 8px; }
-    details > summary { cursor: pointer; font-weight: 600; }
-    ul.attach { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
-    ul.attach li { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-    ul.attach a { text-decoration: none; }
-    .danger { background: #fee2e2; color: #7f1d1d; border: 0; border-radius: 8px; padding: 4px 8px; cursor: pointer; }
-    footer { display: flex; gap: 8px; }
+    :root{ --info-width:380px; --related-width:360px; --related-wide:46vw; }
+    html,body,#container{margin:0;padding:0;height:100%}
+    #container{display:flex;font-family:Arial,sans-serif}
+    #mapPane{position:relative;flex:1;min-width:360px}
+    #viewDiv{position:absolute;inset:0}
+    #svcWarn{position:absolute;top:10px;left:10px;z-index:5;background:#fff4d6;border:1px solid #f0c36d;border-radius:6px;padding:6px 10px;font-size:.9em;display:none}
+    #infoPane{width:var(--info-width);background:#f5f5f5;overflow:auto;padding:20px;box-sizing:border-box;border-left:1px solid #e8e8e8}
+    #infoPane h2{margin:0 0 8px;color:#003087}
+    .assessment-table{width:100%;border-collapse:collapse}
+    .assessment-table th{width:34%;text-align:left;padding:4px 8px;vertical-align:top;font-weight:normal}
+    .assessment-table td{padding:4px 8px;vertical-align:top}
+    .assessment-table input,.assessment-table textarea{width:100%;box-sizing:border-box;padding:6px 8px;font-size:.95em;border:1px solid #ccc;border-radius:4px;background:#fff}
+    .btn{background:#003087;color:#fff;border:none;padding:6px 12px;border-radius:4px;cursor:pointer}
+    .btn:disabled{background:#aaa}
+    #relatedPane{width:var(--related-width);max-width:100vw;background:#fff;border-left:1px solid #e8e8e8;display:none;padding:12px;box-sizing:border-box;overflow:auto}
+    .open-related #relatedPane{display:block}
+    .wide-related #relatedPane{width:var(--related-wide)}
+    .tabs{display:flex;gap:8px;margin:10px 0 12px;flex-wrap:wrap}
+    .tab{padding:6px 10px;border:1px solid #c9c9c9;border-radius:999px;background:#f8f8f8;cursor:pointer}
+    .tab.active{background:#fff;border-color:#888}
+    .list{display:flex;flex-direction:column;gap:10px}
+    .card{border:1px solid #eee;border-radius:8px;padding:10px}
   </style>
 </head>
 <body>
-  <header>LEAP — Section 16 Editor (Map + Feature Form + Attachments) <span class="small">ArcGIS JS 4.29</span></header>
+  <div id="container">
+    <div id="mapPane">
+      <div id="svcWarn">Service not reachable yet. Map is usable; related data will appear when it loads.</div>
+      <div id="viewDiv"></div>
+    </div>
 
-  <div class="app">
-    <div id="viewDiv"></div>
+    <div id="infoPane">
+      <h2>Section 16 Assessment</h2>
+      <p id="startHint">Select a parcel on the map or search a Lot/Plan to begin.</p>
 
-    <div class="panel">
-      <div class="card">
-        <div class="row">
-          <input id="searchBox" type="text" placeholder="Search by Lot/Plan (e.g. 45SP164230)" />
-          <button class="btn" id="findBtn">Find</button>
-          <button class="btn secondary" id="clearBtn">Clear</button>
+      <div id="formFields" style="display:none;">
+        <table class="assessment-table">
+          <tr><th>Lot/Plan</th><td><input id="lotplan" disabled/></td></tr>
+          <tr><th>Lot</th><td><input id="lot" disabled/></td></tr>
+          <tr><th>Plan</th><td><input id="plan" disabled/></td></tr>
+          <tr><th>Survey Indicator</th><td><input id="surv_ind" disabled/></td></tr>
+          <tr><th>Title Reference</th><td><input id="title_ref"/></td></tr>
+          <tr><th>Property Address</th><td><input id="prop_addr"/></td></tr>
+          <tr><th>Area (ha)</th><td><input id="lot_area_c"/></td></tr>
+          <tr><th>Tenure</th><td><input id="tenure" disabled/></td></tr>
+          <tr><th>Registered Owner/Trustee</th><td><input id="reg_owner"/></td></tr>
+          <tr><th>LGA</th><td><input id="shire_name" disabled/></td></tr>
+        </table>
+
+        <div style="margin-top:12px;text-align:right">
+          <button id="saveBtn" class="btn" disabled>Save</button>
+          <button id="reportBtn" class="btn" disabled>Report</button>
         </div>
-        <div style="display:flex; gap:8px; margin-top:10px;">
-          <a class="pill small" href="https://sppims-dams.dsdilgp.qld.gov.au/spp/?tab=layers" target="_blank">SPP Viewer</a>
-          <a class="pill small" href="https://qldglobe.information.qld.gov.au/" target="_blank">QLD Globe</a>
-          <span id="selInfo" class="pill small">No feature selected</span>
+      </div>
+    </div>
+
+    <div id="relatedPane">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:6px">
+        <strong>Related</strong>
+        <div>
+          <button id="toggleWide" class="btn" style="background:#28559a">Wide</button>
+          <button id="closeRelated" class="btn" style="background:#666">Close</button>
         </div>
       </div>
-
-      <div class="card">
-        <strong>Feature Form</strong>
-        <div id="formDiv" class="small">Tip: select a parcel to edit. Cadastral fields 1–9 are read-only.</div>
-      </div>
-
-      <div class="card">
-        <strong>Attachments</strong>
-        <div class="small" style="margin:6px 0;">Add site photos/documents. Accepted types follow your layer settings.</div>
-        <input type="file" id="fileInput" multiple />
-        <ul id="attachList" class="attach"></ul>
-      </div>
-
-      <details class="card">
-        <summary>Related records &amp; geometry (Editor)</summary>
-        <div id="editorDiv" style="margin-top:8px;"></div>
-      </details>
-
-      <div class="card"><div id="statusBar">Ready.</div></div>
-
-      <footer>
-        <button class="btn secondary" id="resetBtn">Reset changes</button>
-        <button class="btn" id="saveBtn">Save</button>
-      </footer>
+      <div id="tabs" class="tabs"></div>
+      <div id="relatedActions" style="margin-bottom:10px"></div>
+      <div id="relatedContent" class="list"></div>
     </div>
   </div>
 
+  <script src="https://js.arcgis.com/4.29/"></script>
   <script>
-    // ========= CONFIG =========
-    const CONFIG = {
-      LAYER_URL: "https://services8.arcgis.com/N9pWXvW1bA4UHL2O/arcgis/rest/services/ClaimParcels_vegtest/FeatureServer/1",
-      LOTPLAN_FIELD: "lotplan",                 // exact field name for Lot/Plan search
-      SEARCH_WILDCARD: true,                    // LIKE '%term%' if true
-      LOCK_FIRST_N_IN_FORM_TEMPLATE: 9,         // <- lock form elements 1–9
-      READONLY_FIELDS: []                       // fallback list, e.g. ["lot","plan","lotplan"]
-    };
-    // ==========================
-
-    let view, layer, form, selectedFeature, editor;
+  window.addEventListener("DOMContentLoaded", function(){
 
     require([
+      "esri/config",
       "esri/Map",
       "esri/views/MapView",
       "esri/layers/FeatureLayer",
-      "esri/widgets/FeatureForm",
-      "esri/widgets/Editor",
-      "esri/rest/support/Query",
-      "esri/core/reactiveUtils",
-      "esri/Graphic"
-    ], (
-      Map, MapView, FeatureLayer, FeatureForm, Editor, Query, reactiveUtils, Graphic
-    ) => {
-      layer = new FeatureLayer({
-        url: CONFIG.LAYER_URL,
-        outFields: ["*"],
-        title: "Claim Parcels",
-        popupEnabled: false
-      });
+      "esri/layers/GraphicsLayer",
+      "esri/layers/WebTileLayer",
+      "esri/Basemap",
+      "esri/Graphic",
+      "esri/widgets/Zoom",
+      "esri/widgets/Search"
+    ], function(esriConfig, Map, MapView, FeatureLayer, GraphicsLayer, WebTileLayer, Basemap, Graphic, Zoom, Search) {
 
-      const map = new Map({ basemap: "arcgis-topographic", layers: [layer] });
+      // ---------- CONFIG ----------
+      esriConfig.request.trustedServers.push("uat-qportal.information.qld.gov.au");
+      // Point to the sublayer that holds parcels:
+      const PARCEL_URL = "https://uat-qportal.information.qld.gov.au/arcgis/rest/services/LEAP_ClaimParcels_rbt/FeatureServer/0";
+      // If your data is still on vegtest, use that instead:
+      // const PARCEL_URL = "https://uat-qportal.information.qld.gov.au/arcgis/rest/services/sirrte_idi_LEAP_ClaimParcels_vegtest/FeatureServer/1";
 
-      view = new MapView({
-        container: "viewDiv",
-        map,
-        center: [153.026, -27.469],
-        zoom: 11
-      });
+      // ---------- DOM ----------
+      const svcWarn   = document.getElementById("svcWarn");
+      const startHint = document.getElementById("startHint");
+      const form      = document.getElementById("formFields");
+      const saveBtn   = document.getElementById("saveBtn");
+      const reportBtn = document.getElementById("reportBtn");
+      const tabsEl    = document.getElementById("tabs");
+      const relatedContent = document.getElementById("relatedContent");
+      const relatedActions = document.getElementById("relatedActions");
+      const closeRelated = document.getElementById("closeRelated");
+      const toggleWide   = document.getElementById("toggleWide");
 
-      // Editor (for related records/geometry if needed)
-      editor = new Editor({
-        view,
-        container: "editorDiv",
-        allowedWorkflows: ["update"],
-        layerInfos: [{ layer, enableGeometryUpdates: true }]
-      });
-
-      document.getElementById("findBtn").onclick = onFind;
-      document.getElementById("clearBtn").onclick = clearSelection;
-      document.getElementById("saveBtn").onclick = () => form && form.submit();
-      document.getElementById("resetBtn").onclick = () => form && (form.feature = selectedFeature);
-      document.getElementById("fileInput").addEventListener("change", onFilesChosen);
-
-      const status = (msg) => document.getElementById("statusBar").textContent = msg;
-
-      // Build fieldConfig: lock first N from form template order; fallback to explicit names
-      async function makeFieldConfig() {
-        await layer.load();
-        const explicit = new Set((CONFIG.READONLY_FIELDS || []).map(s => s.toLowerCase()));
-        const order = [];
-
-        // Try to read the saved Smart Form (FormTemplate) from the layer
-        const t = layer.formTemplate || (layer.getFormTemplate && layer.getFormTemplate());
-        if (t && t.elements && t.elements.length) {
-          const collect = (els) => {
-            els.forEach(el => {
-              if (el.fieldName) order.push(el.fieldName);
-              if (el.elements && el.elements.length) collect(el.elements);
-            });
-          };
-          collect(t.elements);
-        }
-
-        const lockSet = new Set();
-        // Lock first N by order (Spreadsheet’s “1–9 cadastral” should be first in your template)
-        if (order.length && CONFIG.LOCK_FIRST_N_IN_FORM_TEMPLATE > 0) {
-          order.slice(0, CONFIG.LOCK_FIRST_N_IN_FORM_TEMPLATE).forEach(n => lockSet.add(n.toLowerCase()));
-        }
-        // Also lock explicit names, if any
-        explicit.forEach(n => lockSet.add(n));
-
-        // Build config (preserve order: prefer template order; then others)
-        const allFields = layer.fields
-          .filter(f => !/^shape/i.test(f.name) && f.name !== layer.objectIdField && !/^globalid$/i.test(f.name));
-        const byName = new Map(allFields.map(f => [f.name, f]));
-
-        const orderedNames = [...new Set([...order, ...allFields.map(f => f.name)])];
-        return orderedNames
-          .filter(n => byName.has(n))
-          .map(n => {
-            const f = byName.get(n);
-            return {
-              name: f.name,
-              label: f.alias || f.name,
-              editable: !lockSet.has(f.name.toLowerCase()) && f.editable !== false
-            };
-          });
+      // ---------- BASEMAP that works without arcgis.com ----------
+      function offlineBasemap(){
+        const osm = new WebTileLayer({
+          urlTemplate: "https://tile.openstreetmap.org/{level}/{col}/{row}.png",
+          copyright: "© OpenStreetMap contributors"
+        });
+        return new Basemap({ baseLayers: [osm], title: "OpenStreetMap", id: "osm-direct" });
       }
 
-      function wireFormEvents() {
-        if (!form) return;
-        form.on("submit", async (evt) => {
-          evt.preventDefault();
-          if (!selectedFeature) return;
-          try {
-            const oidField = layer.objectIdField;
-            const update = { attributes: { ...selectedFeature.attributes, ...evt.values } };
-            update.attributes[oidField] = selectedFeature.attributes[oidField];
+      const map  = new Map({ basemap: offlineBasemap() });
+      const view = new MapView({ container: "viewDiv", map, zoom: 6, center: [145,-24] });
 
-            status("Saving…");
-            const res = await layer.applyEdits({ updateFeatures: [update] });
-            const r = res.updateFeatureResults?.[0];
-            if (r?.error) throw r.error;
+      // try to use Imagery if allowed; otherwise stick to OSM
+      try { map.basemap = "satellite"; } catch(e) {}
+      view.on("layerview-create-error", (evt)=>{
+        const isBase = evt?.layer?.type === "tile" || (evt?.layer?.id || "").includes("base");
+        if (isBase) {
+          console.warn("Basemap failed; reverting to OSM.", evt?.error);
+          map.basemap = offlineBasemap();
+        }
+      });
 
-            // Refresh selected feature
-            const q = layer.createQuery();
-            q.objectIds = [update.attributes[oidField]];
-            q.outFields = ["*"];
-            q.returnGeometry = true;
-            const fresh = await layer.queryFeatures(q);
-            selectedFeature = fresh.features[0];
-            form.feature = selectedFeature;
+      view.when(()=>{ view.ui.remove("zoom"); view.ui.add(new Zoom({view}), "top-left"); });
 
-            await refreshAttachments();
-            status("Saved.");
-          } catch (e) {
-            console.error(e);
-            status("Save failed: " + (e.message || e));
+      const search = new Search({ view, includeDefaultSources: true, allPlaceholder: "Search address or Lot/Plan" });
+      view.ui.add(search, "top-right");
+
+      const highlightLayer = new GraphicsLayer(); map.add(highlightLayer);
+
+      // ---------- STATE ----------
+      let parcelFL=null, relRegistry={}, selected=null;
+
+      // ---------- INIT ----------
+      (async function init(){
+        parcelFL = await safeLoadFL(PARCEL_URL);
+        if (!parcelFL){
+          if (svcWarn){
+            svcWarn.textContent = "Parcel service is unreachable (network/login). Map is usable; related data will appear once it connects.";
+            svcWarn.style.display = "block";
           }
+          return;
+        }
+        map.add(parcelFL);
+        try { await view.goTo(parcelFL.fullExtent); } catch(e){}
+
+        // Add Lot/Plan search source once layer is live
+        try {
+          search.sources.add({
+            layer: parcelFL, searchFields:["lotplan"], displayField:"lotplan",
+            outFields:["*"], name:"Claim Parcels", placeholder:"e.g. 45SP164230"
+          });
+        } catch(e){ console.warn(e); }
+
+        // Build simple related tabs
+        buildRelatedTabs(parcelFL.relationships || []);
+
+        // select by click
+        view.on("click", (evt)=>{
+          view.hitTest(evt).then(r=>{
+            const hit = r.results.find(x => x.graphic?.layer===parcelFL);
+            if (hit) onSelect(hit.graphic); else clearSelection();
+          });
+        });
+
+        // select by search
+        search.on("select-result", (e)=> e.result?.feature && onSelect(e.result.feature));
+      })();
+
+      async function safeLoadFL(url){
+        const fl = new FeatureLayer({ url, outFields:["*"] });
+        try { await fl.load(); return fl; }
+        catch(e){ console.warn("Failed to load:", url, e); return null; }
+      }
+
+      function onSelect(feature){
+        selected = feature;
+        fillForm(feature);
+        highlight(feature);
+        startHint.style.display="none"; form.style.display="block";
+        saveBtn.disabled = reportBtn.disabled = false;
+        renderRelated(); // refresh counts/content
+      }
+      function clearSelection(){
+        highlightLayer.removeAll();
+        selected = null;
+        startHint.style.display="block"; form.style.display="none";
+        saveBtn.disabled = reportBtn.disabled = true;
+        relatedActions.innerHTML = ""; relatedContent.innerHTML = "";
+      }
+      function fillForm(f){
+        const a = f.attributes || {};
+        Object.entries(a).forEach(([k,v])=>{
+          const el = document.getElementById(k); if (!el) return;
+          el.value = (v==null ? "" : (k==="lot_area" ? (v/10000).toFixed(3) : v));
+        });
+      }
+      function highlight(f){
+        highlightLayer.removeAll();
+        highlightLayer.add(new Graphic({
+          geometry:f.geometry,
+          symbol:{ type:"simple-fill", color:[0,200,0,0.25], outline:{ color:"#00e0ff", width:2 } }
+        }));
+        try { view.goTo(f.geometry.extent.expand(1.2)); } catch(e){}
+      }
+
+      // ---------- Related (guarded; shows messages until ready) ----------
+      function buildRelatedTabs(rels){
+        tabsEl.innerHTML = "";
+        if (!rels.length){
+          const t = document.createElement("div");
+          t.className="tab active"; t.textContent="No Related Tables";
+          tabsEl.appendChild(t); return;
+        }
+        relRegistry = {};
+        rels.forEach((rel,idx)=>{
+          const key = "rel_"+idx;
+          relRegistry[key] = rel;
+          const tab = document.createElement("div");
+          tab.className="tab"; tab.textContent = "Related " + (rel.name || rel.relatedTableId);
+          tab.onclick = ()=> openDrawer(key);
+          tabsEl.appendChild(tab);
         });
       }
 
-      async function onFind() {
-        try {
-          const term = document.getElementById("searchBox").value.trim();
-          if (!term) return;
-
-          const q = layer.createQuery();
-          const fld = CONFIG.LOTPLAN_FIELD;
-          q.where = CONFIG.SEARCH_WILDCARD
-            ? `${fld} LIKE '%${term.replace(/'/g, "''")}%'`
-            : `${fld} = '${term.replace(/'/g, "''")}'`;
-          q.outFields = ["*"];
-          q.returnGeometry = true;
-
-          status("Searching…");
-          const res = await layer.queryFeatures(q);
-          if (!res.features.length) { status("No results."); return; }
-          selectedFeature = res.features[0];
-
-          await view.goTo({ target: selectedFeature, zoom: 18 }, { duration: 600 });
-          document.getElementById("selInfo").textContent =
-            `${CONFIG.LOTPLAN_FIELD}: ${selectedFeature.attributes[CONFIG.LOTPLAN_FIELD] ?? "(n/a)"}`;
-
-          // Create/replace FeatureForm with locked fields
-          if (form) form.destroy();
-          form = new FeatureForm({
-            container: "formDiv",
-            layer,
-            feature: selectedFeature,
-            groupDisplay: "sequential",
-            fieldConfig: await makeFieldConfig()
-          });
-          wireFormEvents();
-
-          await refreshAttachments();
-          status(`Selected 1 of ${res.features.length} match(es).`);
-        } catch (e) {
-          console.error(e);
-          status("Search failed: " + (e.message || e));
+      function openDrawer(key){
+        document.body.classList.add("open-related","wide-related");
+        if (!parcelFL){
+          relatedActions.innerHTML = "";
+          relatedContent.innerHTML =
+            "<div class='card'>The parcel layer hasn't loaded yet. Once it loads, related tables will appear here.</div>";
+          return;
         }
-      }
-
-      function clearSelection() {
-        selectedFeature = null;
-        document.getElementById("selInfo").textContent = "No feature selected";
-        document.getElementById("attachList").innerHTML = "";
-        document.getElementById("fileInput").value = "";
-        if (form) { form.destroy(); form = null; }
-        document.getElementById("formDiv").innerHTML =
-          '<span class="small">Tip: select a parcel to edit. Cadastral fields 1–9 are read-only.</span>';
-        status("Cleared.");
-      }
-
-      async function refreshAttachments() {
-        const list = document.getElementById("attachList");
-        list.innerHTML = "";
-        if (!selectedFeature) return;
-
-        const oid = selectedFeature.getObjectId();
-        try {
-          const result = await layer.queryAttachments({ objectIds: [oid] });
-          const rows = result[oid] || [];
-          if (!rows.length) { list.innerHTML = '<li class="small">No attachments.</li>'; return; }
-          rows.forEach(att => {
-            const li = document.createElement("li");
-            const a = document.createElement("a");
-            a.textContent = att.name || ("Attachment " + att.id);
-            a.target = "_blank";
-            a.href = `${layer.url}/${oid}/attachments/${att.id}`;
-            const del = document.createElement("button");
-            del.className = "danger";
-            del.textContent = "Delete";
-            del.onclick = () => deleteAttachment(oid, att.id);
-            li.appendChild(a);
-            li.appendChild(del);
-            list.appendChild(li);
-          });
-        } catch (e) {
-          console.error(e);
-          list.innerHTML = '<li class="small">Could not load attachments.</li>';
+        if (!selected){
+          relatedActions.innerHTML = "";
+          relatedContent.innerHTML =
+            "<div class='card'>Pick a parcel first to view its related records.</div>";
+          return;
         }
+        renderRelated(key);
       }
+      closeRelated.onclick = ()=>{ document.body.classList.remove("open-related","wide-related"); };
+      toggleWide.onclick   = ()=>{ document.body.classList.toggle("wide-related"); view.resize(); };
 
-      async function onFilesChosen(ev) {
-        if (!selectedFeature) return;
-        const files = Array.from(ev.target.files || []);
-        if (!files.length) return;
-
-        const oid = selectedFeature.getObjectId();
-        status("Uploading attachment(s)…");
-        try {
-          const adds = files.map(file => ({ objectId: oid, attachment: file }));
-          const res = await layer.applyEdits({ addAttachments: adds });
-          const err = res.addAttachmentResults?.find(r => r.error)?.error;
-          if (err) throw err;
-          await refreshAttachments();
-          status("Attachment(s) uploaded.");
-        } catch (e) {
-          console.error(e);
-          status("Upload failed: " + (e.message || e));
-        } finally {
-          ev.target.value = "";
+      async function renderRelated(key){
+        relatedActions.innerHTML = ""; relatedContent.innerHTML = "";
+        if (!parcelFL || !selected){
+          relatedContent.innerHTML = "<div class='card'>Waiting for layer / selection…</div>";
+          return;
         }
+        // For now: simple inspector showing how many related rows exist for each relationship
+        const pKey = Object.values(selected.attributes)[0]; // not used; just a placeholder
+        relatedContent.innerHTML = "<div class='card'>Related content will appear here (editor UI can be added once relationships are confirmed on the service).</div>";
       }
 
-      async function deleteAttachment(objectId, attachmentId) {
-        status("Deleting attachment…");
-        try {
-          const res = await layer.applyEdits({
-            deleteAttachments: [{ objectId, attachmentIds: [attachmentId] }]
-          });
-          const err = res.deleteAttachmentResults?.[0]?.error;
-          if (err) throw err;
-          await refreshAttachments();
-          status("Attachment deleted.");
-        } catch (e) {
-          console.error(e);
-          status("Delete failed: " + (e.message || e));
-        }
-      }
+      // ---------- Save ----------
+      saveBtn.onclick = ()=>{
+        if (!selected || !parcelFL) return;
+        const attrs = {...selected.attributes};
+        Object.keys(attrs).forEach(k=>{
+          const el=document.getElementById(k); if (el && !el.disabled) attrs[k]=el.value;
+        });
+        parcelFL.applyEdits({ updateFeatures:[{attributes:attrs}] })
+          .then(()=> alert("Saved"))
+          .catch(e => alert("Save error: "+e.message));
+      };
+
+      // small helper
+      function htmlEscape(s){ return (s==null?"":String(s)).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m])); }
     });
+  });
   </script>
 </body>
 </html>
