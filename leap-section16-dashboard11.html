@@ -412,4 +412,26 @@ require([
           block.querySelector("#inlineNotesHost").replaceWith(inlineNotesList);
           continue;
         }
-        const ctrl = it.t
+        const ctrl = it.textarea ? `<textarea id="${it.field}" ${it.editable?"":"disabled"}></textarea>`
+                                 : `<input id="${it.field}" ${it.editable?"":"disabled"} />`;
+        body.insertAdjacentHTML("beforeend",
+          `<div class="row"><label for="${it.field}">${it.alias}</label><div class="field">${ctrl}</div></div>`);
+      }
+      host.appendChild(secDiv);
+    }
+  }
+
+  // Save parcel
+  btnSaveParcel.onclick = ()=>{
+    if(!selectedParcel) return;
+    const upd = { ...selectedParcel.attributes };
+    for(const m of FIELD_MAP){ const el=$(m.field); if(el && m.editable){ upd[m.field] = el.value || null; } }
+    parcels.applyEdits({ updateFeatures:[{ attributes:upd }] })
+      .then(r=> alert(r.updateFeatureResults?.[0]?.success ? "✅ Saved" : "❌ Save failed"))
+      .catch(e=> alert("❌ Save error: "+e.message));
+  };
+
+});
+</script>
+</body>
+</html>
