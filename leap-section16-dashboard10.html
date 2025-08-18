@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>LEAP Section 16 Dashboard</title>
+  <title>LEAP Section 16 Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="https://js.arcgis.com/4.29/esri/themes/light/main.css" />
   <style>
@@ -10,52 +10,27 @@
     #container { display:flex; font-family:Arial,sans-serif; }
     #mapPane { position:relative; flex:1; }
     #viewDiv { width:100%; height:100%; }
-
-    #infoPane {
-      width:380px;
-      background:#f5f5f5;
-      overflow-y:auto;
-      padding:20px;
-      box-sizing:border-box;
-    }
+    #infoPane { width:380px; background:#f5f5f5; overflow-y:auto; padding:20px; box-sizing:border-box; }
     #infoPane h2 { margin-top:0; color:#003087; }
-    #infoPane h3 {
-      margin:16px 0 8px;
-      font-size:1.1em;
-      font-weight:normal; /* make sub‑headings less bold */
-      color:#003087;
-    }
+    #infoPane h3 { margin:16px 0 8px; font-size:1.1em; font-weight:normal; color:#003087; }
     .assessment-table { width:100%; border-collapse:collapse; }
-    .assessment-table th {
-      text-align:left; padding:4px 8px; vertical-align:top;
-      font-weight:normal;
-    }
-    .assessment-table td {
-      padding:4px 8px; vertical-align:top;
-    }
-    .assessment-table input,
-    .assessment-table textarea {
-      width:100%; box-sizing:border-box;
-      padding:4px; font-size:0.9em;
-      border:1px solid #ccc; border-radius:3px;
-    }
+    .assessment-table th { text-align:left; padding:4px 8px; vertical-align:top; font-weight:normal; }
+    .assessment-table td { padding:4px 8px; vertical-align:top; }
+    .assessment-table input,.assessment-table textarea { width:100%; box-sizing:border-box; padding:4px; font-size:0.9em; border:1px solid #ccc; border-radius:3px; }
     .assessment-table textarea { resize:vertical; height:60px; }
-
-    .btn {
-      background:#003087; color:white; border:none;
-      padding:6px 12px; border-radius:3px;
-      cursor:pointer; margin-right:8px;
-    }
+    .btn { background:#003087; color:white; border:none; padding:6px 12px; border-radius:3px; cursor:pointer; margin-right:8px; }
     .btn:disabled { background:#aaa; cursor:not-allowed; }
+    #status { position:absolute; left:10px; bottom:10px; background:#0008; color:#fff; padding:6px 10px; border-radius:8px; font-size:12px; display:none; }
   </style>
 </head>
 <body>
   <div id="container">
     <div id="mapPane">
       <div id="viewDiv"></div>
+      <div id="status"></div>
     </div>
     <div id="infoPane">
-      <h2>Section 16 Assessment</h2>
+      <h2>Section 16 Assessment</h2>
       <p id="startHint">Select a parcel on the map or search a Lot/Plan to begin.</p>
 
       <div id="formFields" style="display:none;">
@@ -135,7 +110,6 @@
           <tr><th>Party</th>            <td><input id="cul_party" /></td></tr>
         </table>
 
-        <!-- Actions -->
         <div style="margin-top:12px; text-align:right;">
           <button id="saveBtn" class="btn" disabled>💾 Save</button>
           <button id="reportBtn" class="btn" disabled>📄 Report</button>
@@ -147,6 +121,7 @@
   <script src="https://js.arcgis.com/4.29/"></script>
   <script>
     require([
+      "esri/config",
       "esri/Map",
       "esri/views/MapView",
       "esri/layers/FeatureLayer",
@@ -154,66 +129,73 @@
       "esri/Graphic",
       "esri/widgets/Zoom",
       "esri/widgets/Search"
-    ], function(Map, MapView, FeatureLayer, GraphicsLayer, Graphic, Zoom, Search) {
+    ], function(esriConfig, Map, MapView, FeatureLayer, GraphicsLayer, Graphic, Zoom, Search) {
 
-      const CLAIM_URL = "https://uat-qportal.information.qld.gov.au/arcgis/rest/services/sirrte_idi_LEAP_ClaimParcels_vegtest/FeatureServer/1";
+      // === EDIT THIS: must point to the LAYER endpoint (/FeatureServer/<id>) ===
+      const CLAIM_URL = "https://YOUR-SERVER/arcgis/rest/services/IDI/LEAP_ClaimParcels_new/FeatureServer/0";
 
-      // 1) create map & view
+      // Trust the server (helps cross-domain auth if you’re already signed in)
+      try {
+        const { protocol, host } = new URL(CLAIM_URL);
+        esriConfig.request.trustedServers.push(`${protocol}//${host}`);
+      } catch(e){}
+
+      // 1) map & view
       const map = new Map({ basemap: "satellite" });
       const view = new MapView({
         container: "viewDiv",
-        map: map,
+        map,
         zoom: 6,
         center: [145, -24]
       });
 
-      // 2) add layers
-      const claimLayer = new FeatureLayer({ url: CLAIM_URL, outFields: ["*"] });
+      // 2) layers
+      const claimLayer = new FeatureLayer({ url: CLAIM_URL, outFields: ["*"], popupEnabled:false });
       const highlightLayer = new GraphicsLayer();
       map.addMany([claimLayer, highlightLayer]);
 
-      // 3) as soon as layer loads, zoom to its full extent
-      claimLayer.when(() => view.goTo(claimLayer.fullExtent));
+      // diagnostics
+      const status = document.getElementById("status");
+      function toast(t, show=true){ status.textContent=t||""; status.style.display=show?"block":"none"; }
 
-      // 4) only one Zoom widget
-      view.when(() => {
-        view.ui.remove("zoom");
-        const zv = new Zoom({ view });
-        view.ui.add(zv, "top-left");
+      claimLayer.when(() => {
+        console.log("Parcels layer OK:", CLAIM_URL);
+        toast("");
+        if (claimLayer.fullExtent) view.goTo(claimLayer.fullExtent).catch(()=>{});
+      }).catch(err => {
+        console.error("Parcels layer failed:", err);
+        toast("Layer failed to load. Check the URL (must end with /FeatureServer/<id>) and your sharing/login.");
       });
 
-      // 5) add the Search widget
+      // 3) zoom widget (single instance)
+      view.when(() => {
+        view.ui.remove("zoom");
+        view.ui.add(new Zoom({ view }), "top-left");
+      });
+
+      // 4) Search widget (top-right) by lotplan
       const searchWidget = new Search({
-        view: view,
-        allPlaceholder: "Search Lot/Plan e.g. 45SP164230",
+        view,
         includeDefaultSources: false,
         sources: [{
           layer: claimLayer,
-          searchFields: ["lotplan"],
+          searchFields: ["lotplan"],     // ensure this field exists on the new service
           displayField: "lotplan",
           exactMatch: false,
           outFields: ["*"],
           name: "Claim Parcels",
-          placeholder: "e.g. 45SP164230"
+          placeholder: "e.g. 45SP164230",
+          resultGraphicEnabled: false,
+          autoNavigate: true
         }]
       });
       view.ui.add(searchWidget, "top-right");
 
-      // 6) when user picks a Search result…
-      searchWidget.on("select-result", function(evt) {
-        const feature = evt.result.feature;
-        if (feature) {
-          showForm(feature);
-          highlightAndZoom(feature);
-        }
-      });
-
-      // 7) DOM refs + form logic
-      const startHint   = document.getElementById("startHint");
-      const formFields  = document.getElementById("formFields");
-      const saveBtn     = document.getElementById("saveBtn");
-      const reportBtn   = document.getElementById("reportBtn");
-
+      // 5) selection + form bindings
+      const startHint  = document.getElementById("startHint");
+      const formFields = document.getElementById("formFields");
+      const saveBtn    = document.getElementById("saveBtn");
+      const reportBtn  = document.getElementById("reportBtn");
       let selectedFeature = null;
 
       function clearSelection() {
@@ -226,11 +208,11 @@
 
       function showForm(feature) {
         selectedFeature = feature;
+        // push attributes into inputs whose IDs match field names
         Object.entries(feature.attributes).forEach(([k,v]) => {
           const inp = document.getElementById(k);
           if (!inp) return;
-          // convert m² → ha
-          if (k==="lot_area" && v!=null) v = (v/10000).toFixed(3);
+          if (k==="lot_area" && v!=null) v = (v/10000).toFixed(3); // m² -> ha (optional)
           inp.value = v!=null ? v : "";
         });
         startHint.style.display  = "none";
@@ -242,48 +224,47 @@
         highlightLayer.removeAll();
         highlightLayer.add(new Graphic({
           geometry: feature.geometry,
-          symbol: {
-            type: "simple-fill",
-            color: [255,255,0,0.3],
-            outline: { color:"yellow", width:2 }
-          }
+          symbol: { type: "simple-fill", color: [255,255,0,0.3], outline: { color:"yellow", width:2 } }
         }));
-        // full extent + 20% padding
-        const padded = feature.geometry.extent.expand(1.2);
-        view.goTo(padded).catch(console.error);
+        const padded = feature.geometry.extent ? feature.geometry.extent.expand(1.2) : feature.geometry;
+        view.goTo(padded).catch(()=>{});
       }
 
-      // 8) click on map
+      // map click
       view.on("click", evt => {
         view.hitTest(evt).then(r => {
-          const hit = r.results.find(r=> r.graphic?.layer===claimLayer);
-          if (hit) {
-            showForm(hit.graphic);
-            highlightAndZoom(hit.graphic);
-          } else {
-            clearSelection();
-          }
+          const hit = r.results.find(x => x.graphic?.layer === claimLayer);
+          if (hit) { showForm(hit.graphic); highlightAndZoom(hit.graphic); }
+          else { clearSelection(); }
         });
       });
 
-      // 9) Save edits
+      // search select
+      searchWidget.on("select-result", evt => {
+        const feature = evt.result?.feature;
+        if (feature) { showForm(feature); highlightAndZoom(feature); }
+      });
+
+      // save edits
       saveBtn.onclick = () => {
+        if (!selectedFeature) return;
         const upd = { ...selectedFeature.attributes };
         Object.keys(upd).forEach(k => {
           const inp = document.getElementById(k);
           if (inp && !inp.disabled) upd[k] = inp.value;
         });
         claimLayer.applyEdits({ updateFeatures:[{ attributes:upd }] })
-          .then(() => alert("✅ Saved!"))
+          .then(r => {
+            const ok = r.updateFeatureResults?.[0]?.success;
+            alert(ok ? "✅ Saved!" : "❌ Save failed.");
+          })
           .catch(e => alert("❌ Save error: " + e.message));
       };
 
-      // 10) Report stub
       reportBtn.onclick = () => alert("🚧 Generate PDF here");
 
-      // 11) initialize
+      // init
       clearSelection();
-
     });
   </script>
 </body>
