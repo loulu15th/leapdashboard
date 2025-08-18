@@ -5,92 +5,62 @@
 <title>LEAP – Section 16 (Dashboard V2)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <link rel="stylesheet" href="https://js.arcgis.com/4.29/esri/themes/light/main.css" />
-<style>/* WIDTH PRESETS */
-:root{
-  /* was: 33vw / 300px */
-  --panelW: 42vw;            /* width when a parcel is selected */
-  --panelWCollapsed: 380px;  /* width when idle (shows headings) */
-}
+<style>
+  /* WIDTH PRESETS */
+  :root{
+    --panelW: 42vw;            /* width when a parcel is selected */
+    --panelWCollapsed: 380px;  /* width before selection */
+  }
 
-/* right panel */
-#panel{
-  width:var(--panelWCollapsed);
-  max-width:820px;           /* was 760px */
-  background:#fff;
-  border-left:1px solid #e6e6e6;
-  overflow-y:auto;           /* only vertical scroll */
-  overflow-x:hidden;
-  transition:width .2s ease;
-}
-#panel.open{ width:var(--panelW); }
+  html,body{height:100%;margin:0}
+  #wrap{display:flex;height:100%}
+  #map{position:relative;flex:1}
+  #view{position:absolute;inset:0}
 
-#panel .pad{ padding:16px 18px; }    /* a hair more breathing room */
+  /* right panel */
+  #panel{
+    width:var(--panelWCollapsed);
+    max-width:820px;
+    background:#fff;
+    border-left:1px solid #e6e6e6;
+    overflow-y:auto;
+    overflow-x:hidden;
+    transition:width .2s ease;
+  }
+  #panel.open{ width:var(--panelW); }
+  #panel .pad{ padding:16px 18px; }
 
-/* form rows */
-.row{ display:flex; gap:12px; margin:8px 0; }
-.row label{
-  width:40%;                 /* was 36% */
-  font-weight:600;
-  line-height:1.25;
-  white-space:normal;        /* allow wrapping for long labels */
-}
-.row .field{ flex:1; }
+  h2{margin:6px 0 2px;color:#003087}
+  .section{margin:10px 0;border-top:1px solid #eee}
+  .section>header{display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:#fff;padding:8px 0;z-index:1}
+  .section h3{margin:0;color:#003087;font-weight:600}
 
-/* inputs & textareas */
-input, textarea{
-  width:100%;
-  padding:10px 12px;         /* was 8px 10px */
-  border:1px solid #d9d9d9;
-  border-radius:10px;
-  font-size:14px;
-}
-textarea{
-  min-height:96px;           /* was ~70px — makes each note box less stubby */
-  resize:vertical;
-}
+  .row{ display:flex; gap:12px; margin:8px 0; }
+  .row label{
+    width:40%;
+    font-weight:600;
+    line-height:1.25;
+    white-space:normal;
+  }
+  .row .field{ flex:1; }
 
-/* inline Notes list (under Parcel Details) */
-.noteList{
-  display:grid;
-  gap:10px;
-  max-height:280px;          /* was 220px */
-  overflow:auto;
-  margin-top:8px;
-}
+  input, textarea{
+    width:100%;
+    padding:10px 12px;
+    border:1px solid #d9d9d9;
+    border-radius:10px;
+    font-size:14px;
+  }
+  textarea{ min-height:96px; resize:vertical; }
 
-/* side Notes panel */
-#notesCol{
-  width:420px;               /* was 360px */
-  min-width:360px;
-  border-left:1px solid #e6e6e6;
-  background:#fafbff;
-  display:none;
-  flex-direction:column;
-}
-
-/* mini Notes buttons & highlight (unchanged, just here for context) */
-.miniBtn{
-  margin-left:6px; padding:2px 8px; border:1px solid #d0d7e2;
-  border-radius:999px; background:#f5f8ff; font-size:12px; cursor:pointer;
-}
-.miniBtn:hover{ background:#eaf1ff; }
-.note-hit{ outline:2px solid #003087; box-shadow:0 0 0 2px #0030871f; }
-
-/* responsive: narrow screens fall back to a single wide panel */
-@media (max-width: 1200px){
-  :root{ --panelW: 52vw; }
-  #notesCol{ width:380px; min-width:320px; }
-}
-@media (max-width: 980px){
-  :root{ --panelW: 100vw; }
-  #panel{ width:100vw; }
-  #notesCol{ width:100vw; min-width:auto; }
-  .row label{ width:42%; }
-}
-
+  .muted{color:#777}
+  .actionbar{display:flex;gap:8px;justify-content:flex-end;margin:14px 0}
+  .btn{background:#003087;color:#fff;border:0;border-radius:8px;padding:8px 12px;cursor:pointer}
+  .btn.secondary{background:#e9eefc;color:#003087}
+  .pill{display:inline-block;border:1px solid #d0d7e2;border-radius:999px;padding:2px 8px;font-size:12px;background:#f5f8ff;margin-left:6px}
 
   /* inline Notes list */
-  .noteList{display:grid;gap:8px;max-height:220px;overflow:auto;margin-top:6px}
+  .noteList{display:grid;gap:10px;max-height:280px;overflow:auto;margin-top:8px}
   .noteCard{border:1px solid #e1e7f5;background:#fff;border-radius:10px;padding:8px}
   .noteCard .head{font-weight:600;margin-bottom:4px}
   .noteCard .kv{font-size:13px;margin:2px 0}
@@ -98,7 +68,14 @@ textarea{
   .link{color:#003087;cursor:pointer;text-decoration:underline}
 
   /* side Notes panel */
-  #notesCol{width:360px;min-width:300px;border-left:1px solid #e6e6e6;background:#fafbff;display:none;flex-direction:column}
+  #notesCol{
+    width:420px;               /* wider */
+    min-width:360px;
+    border-left:1px solid #e6e6e6;
+    background:#fafbff;
+    display:none;
+    flex-direction:column;
+  }
   #notesCol header{display:flex;align-items:center;justify-content:space-between;padding:10px;border-bottom:1px solid #e6e6e6;font-weight:600}
   #relCount{margin-left:6px}
   #notesList{padding:10px;overflow:auto}
@@ -111,31 +88,34 @@ textarea{
   #status{position:absolute;left:10px;bottom:10px;background:#0009;color:#fff;padding:6px 10px;border-radius:8px;font-size:12px;display:none}
   .clearBtn{background:#fff;border:1px solid #d9d9d9;border-radius:8px;padding:6px 10px;box-shadow:0 1px 4px rgba(0,0,0,.08);cursor:pointer}
 
-  /* tiny in-field notes button */
-  .miniBtn{
-    margin-left:6px; padding:2px 8px; border:1px solid #d0d7e2;
-    border-radius:999px; background:#f5f8ff; font-size:12px; cursor:pointer;
-  }
+  /* mini “Notes” buttons + highlight */
+  .miniBtn{ margin-left:6px; padding:2px 8px; border:1px solid #d0d7e2; border-radius:999px; background:#f5f8ff; font-size:12px; cursor:pointer;}
   .miniBtn:hover{ background:#eaf1ff; }
   .note-hit{ outline:2px solid #003087; box-shadow:0 0 0 2px #0030871f; }
+
+  /* responsive */
+  @media (max-width: 1200px){
+    :root{ --panelW: 52vw; }
+    #notesCol{ width:380px; min-width:320px; }
+  }
+  @media (max-width: 980px){
+    :root{ --panelW: 100vw; }
+    #panel{ width:100vw; }
+    #notesCol{ width:100vw; min-width:auto; }
+    .row label{ width:42%; }
+  }
 </style>
 <script src="https://js.arcgis.com/4.29/"></script>
 </head>
 <body>
 <div id="wrap">
-  <div id="map">
-    <div id="view"></div>
-    <div id="status"></div>
-  </div>
+  <div id="map"><div id="view"></div><div id="status"></div></div>
 
   <div id="panel">
     <div class="pad">
       <h2>Section 16 Assessment <span id="parcelTag" class="pill" style="display:none"></span></h2>
       <div id="startHint" class="muted">Select a parcel on the map or search Lot/Plan.</div>
-
-      <!-- sections are built here -->
       <div id="sections" style="display:none"></div>
-
       <div class="actionbar">
         <button id="saveParcel" class="btn" disabled>Save Parcel</button>
         <button id="btnToggleNotes" class="btn secondary" style="display:none">Notes</button>
@@ -143,16 +123,15 @@ textarea{
     </div>
   </div>
 
-  <!-- NOTES SIDE PANEL -->
   <div id="notesCol">
     <header>
       <span>Notes <span id="relCount" class="pill">0</span></span>
-      <button id="btnCloseNotes" class="btn secondary">Hide</button>
+      <button id="btnCloseNotes" class="btn secondary" type="button">Hide</button>
     </header>
     <div id="notesList"></div>
     <div id="noteEditor" style="padding:10px;border-top:1px solid #e6e6e6;">
       <div style="font-weight:600;margin:4px 0 8px">Add / Edit Note</div>
-      <!-- dynamic controls inserted here -->
+      <!-- dynamic fields inserted here -->
       <div class="actionbar" style="justify-content:flex-start">
         <button id="btnNewNote" class="btn secondary" type="button">New</button>
         <button id="btnSaveNote" class="btn" type="button">Save Note</button>
@@ -169,159 +148,111 @@ require([
   "esri/widgets/Search","esri/Graphic"
 ], function(esriConfig, esriId, Map, MapView, FeatureLayer, Search, Graphic){
 
-  /* ===== CONFIG (UAT NEW VERSION) ===== */
+  /* === UAT NEW SERVICE (adjust if yours differ) === */
   const PORTAL_URL  = "https://uat-qportal.information.qld.gov.au/portal";
   const PARCELS_URL = "https://uat-qportal.information.qld.gov.au/arcgis/rest/services/IDI/LEAP_ClaimParcels_new/FeatureServer/0";
   const NOTES_URL   = "https://uat-qportal.information.qld.gov.au/arcgis/rest/services/IDI/LEAP_ClaimParcels_new/FeatureServer/1";
-  const REL_ID      = 0;              // parcels -> notes
+  const REL_ID      = 0;
   const SEARCH_HINT = "e.g. 45SP164230";
-  /* ==================================== */
 
-  // trust/CORS & portal
   try{const u=new URL(PARCELS_URL);esriConfig.request.trustedServers.push(`${u.protocol}//${u.host}`);esriConfig.request.corsEnabledServers.push(u.host);}catch(e){}
   esriConfig.portalUrl = PORTAL_URL;
   esriId.checkSignInStatus(PORTAL_URL + "/sharing").catch(()=>esriId.signIn(PORTAL_URL + "/sharing"));
 
-  const $ = id=>document.getElementById(id);
-  const toast=(t,show=true)=>{const s=$("status");s.textContent=t||"";s.style.display=show?"block":"none";}
-  const fmt=(d)=>d?new Date(d).toISOString().slice(0,10):"";
-  const parseDate=(s)=> s ? new Date(s) : null;
+  const $=id=>document.getElementById(id);
+  const fmt=d=>d?new Date(d).toISOString().slice(0,10):"";
 
-  // layers
-  const parcels = new FeatureLayer({ url: PARCELS_URL, outFields:["*"], popupEnabled:false });
-  const notes   = new FeatureLayer({ url: NOTES_URL,   outFields:["*"], popupEnabled:false });
+  const parcels=new FeatureLayer({url:PARCELS_URL,outFields:["*"],popupEnabled:false});
+  const notes  =new FeatureLayer({url:NOTES_URL,  outFields:["*"],popupEnabled:false});
 
-  // map
-  const map = new Map({ basemap:"satellite", layers:[parcels] });
-  const view = new MapView({ container:"view", map, center:[145,-24], zoom:6 });
+  const map=new Map({basemap:"satellite",layers:[parcels]});
+  const view=new MapView({container:"view",map,center:[145,-24],zoom:6});
 
-  // field resolution (case-insensitive)
-  function findField(layer, names){const low=layer.fields.map(f=>f.name.toLowerCase());for(const n of names){const i=low.indexOf(n.toLowerCase());if(i>-1)return layer.fields[i].name;}return null;}
+  const panel=$("panel"), sectionsHost=$("sections"), notesCol=$("notesCol"), notesList=$("notesList");
+  const btnSaveParcel=$("saveParcel"), btnToggleNotes=$("btnToggleNotes"), btnCloseNotes=$("btnCloseNotes");
+  const inlineNotesList=document.createElement("div"); inlineNotesList.className="noteList";
 
-  /* ===== NOTES FIELD MAP & SCHEMA ===== */
-  const NOTE_FIELDS = {
-    oid: "objectid",
-    fk:  "parcelguid",
-    date: "s16_note_date",
-    prepared: "s16_preparedby",
-    lotplan: "s16_lotplan",
-    rpt_purpose: "s16_rpt_purpose",
-    prop_location: "s16_prop_location",
-    site_hist_bg: "s16_site_hist_bg",
-    cur_use_lot: "s16_cur_use_lot",
-    sur_use_lot: "s16_sur_use_lot",
-    leg_pol_guide: "s16_leg_pol_guide",
-    planning_sch: "s16_planning_sch",
-    state_plan_pol: "s16_state_plan_pol",
-    native_title: "s16_native_title",
-    indig_cul_her: "s16_indig_cul_her",
-    qld_heritage: "s16_qld_heritage",
-    contam_reg: "s16_contam_reg",
-    env_conserv: "s16_env_conserv",
-    mine_explor: "s16_mine_explor",
-    elvas_check: "s16_elvas_check",
-    constraints: "s16_constraints",
-    regional_plan: "s16_regional_plan",
-    recommendations: "s16_recommendations",
-    flood: "s16_flood",
-    bushfire: "s16_bushfire",
-    stock_routes: "s16_stock_routes",
-    uxo: "s16_uxo",
-    cul_her_mgmt: "s16_cul_her_mgmt",
-    vegetation: "s16_vegetation"
-  };
+  btnToggleNotes.onclick=()=> notesCol.style.display=(notesCol.style.display==="flex")?"none":"flex";
+  btnCloseNotes.onclick =()=> notesCol.style.display="none";
 
-  const NOTES_SCHEMA = [
-    {key:"prepared",        label:"Prepared by"},
-    {key:"date",            label:"Note Date", type:"date"},
-    {key:"lotplan",         label:"Lot/Plan"},
-    {key:"rpt_purpose",     label:"Purpose of Report", type:"textarea"},
-    {key:"prop_location",   label:"Property Location", type:"textarea"},
-    {key:"site_hist_bg",    label:"Site History & Background", type:"textarea"},
-    {key:"cur_use_lot",     label:"Current use of Lot", type:"textarea"},
-    {key:"sur_use_lot",     label:"Surrounding land uses/Tenure", type:"textarea"},
-    {key:"leg_pol_guide",   label:"Legislation Policies & Guidelines", type:"textarea"},
-    {key:"planning_sch",    label:"Planning Scheme", type:"textarea"},
-    {key:"state_plan_pol",  label:"State Planning Policy", type:"textarea"},
-    {key:"native_title",    label:"Native Title", type:"textarea"},
-    {key:"indig_cul_her",   label:"Indigenous Cultural Heritage", type:"textarea"},
-    {key:"qld_heritage",    label:"Queensland Heritage Register", type:"textarea"},
-    {key:"contam_reg",      label:"Contam Land & Env Register", type:"textarea"},
-    {key:"env_conserv",     label:"Environment/Conservation", type:"textarea"},
-    {key:"mine_explor",     label:"Mining & Exploration", type:"textarea"},
-    {key:"elvas_check",     label:"eLVAS & File Check", type:"textarea"},
-    {key:"constraints",     label:"Constraints/Opportunities", type:"textarea"},
-    {key:"regional_plan",   label:"Surrounding land uses", type:"textarea"},
-    {key:"recommendations", label:"Recommendations", type:"textarea"},
-    {key:"flood",           label:"Flooding", type:"textarea"},
-    {key:"bushfire",        label:"Bushfire", type:"textarea"},
-    {key:"stock_routes",    label:"Stock Routes", type:"textarea"},
-    {key:"uxo",             label:"Unexploded Ordnance", type:"textarea"},
-    {key:"cul_her_mgmt",    label:"Cultural Heritage Management Plan", type:"textarea"},
-    {key:"vegetation",      label:"Vegetation", type:"textarea"}
+  function findField(layer,names){const low=layer.fields.map(f=>f.name.toLowerCase());for(const n of names){const i=low.indexOf(n.toLowerCase());if(i>-1)return layer.fields[i].name;}return null;}
+
+  /* Notes fields & schema */
+  const NOTE_FIELDS={oid:"objectid",fk:"parcelguid",date:"s16_note_date",prepared:"s16_preparedby",lotplan:"s16_lotplan",
+    rpt_purpose:"s16_rpt_purpose",prop_location:"s16_prop_location",site_hist_bg:"s16_site_hist_bg",cur_use_lot:"s16_cur_use_lot",
+    sur_use_lot:"s16_sur_use_lot",leg_pol_guide:"s16_leg_pol_guide",planning_sch:"s16_planning_sch",state_plan_pol:"s16_state_plan_pol",
+    native_title:"s16_native_title",indig_cul_her:"s16_indig_cul_her",qld_heritage:"s16_qld_heritage",contam_reg:"s16_contam_reg",
+    env_conserv:"s16_env_conserv",mine_explor:"s16_mine_explor",elvas_check:"s16_elvas_check",constraints:"s16_constraints",
+    regional_plan:"s16_regional_plan",recommendations:"s16_recommendations",flood:"s16_flood",bushfire:"s16_bushfire",
+    stock_routes:"s16_stock_routes",uxo:"s16_uxo",cul_her_mgmt:"s16_cul_her_mgmt",vegetation:"s16_vegetation" };
+
+  const NOTES_SCHEMA=[
+    {key:"prepared",label:"Prepared by"},
+    {key:"date",label:"Note Date",type:"date"},
+    {key:"lotplan",label:"Lot/Plan"},
+    {key:"rpt_purpose",label:"Purpose of Report",type:"textarea"},
+    {key:"prop_location",label:"Property Location",type:"textarea"},
+    {key:"site_hist_bg",label:"Site History & Background",type:"textarea"},
+    {key:"cur_use_lot",label:"Current use of Lot",type:"textarea"},
+    {key:"sur_use_lot",label:"Surrounding land uses/Tenure",type:"textarea"},
+    {key:"leg_pol_guide",label:"Legislation Policies & Guidelines",type:"textarea"},
+    {key:"planning_sch",label:"Planning Scheme",type:"textarea"},
+    {key:"state_plan_pol",label:"State Planning Policy",type:"textarea"},
+    {key:"native_title",label:"Native Title",type:"textarea"},
+    {key:"indig_cul_her",label:"Indigenous Cultural Heritage",type:"textarea"},
+    {key:"qld_heritage",label:"Queensland Heritage Register",type:"textarea"},
+    {key:"contam_reg",label:"Contam Land & Env Register",type:"textarea"},
+    {key:"env_conserv",label:"Environment/Conservation",type:"textarea"},
+    {key:"mine_explor",label:"Mining & Exploration",type:"textarea"},
+    {key:"elvas_check",label:"eLVAS & File Check",type:"textarea"},
+    {key:"constraints",label:"Constraints/Opportunities",type:"textarea"},
+    {key:"regional_plan",label:"Surrounding land uses",type:"textarea"},
+    {key:"recommendations",label:"Recommendations",type:"textarea"},
+    {key:"flood",label:"Flooding",type:"textarea"},
+    {key:"bushfire",label:"Bushfire",type:"textarea"},
+    {key:"stock_routes",label:"Stock Routes",type:"textarea"},
+    {key:"uxo",label:"Unexploded Ordnance",type:"textarea"},
+    {key:"cul_her_mgmt",label:"Cultural Heritage Management Plan",type:"textarea"},
+    {key:"vegetation",label:"Vegetation",type:"textarea"}
   ];
 
-  /* Parcel field → matching notes topic(s) (for the mini “Notes” buttons) */
-  const FIELD_NOTE_MAP = [
-    { parcel: "flooding",          notes: ["flood"] },
-    { parcel: "bushfire",          notes: ["bushfire"] },
-    { parcel: "plan_schem",        notes: ["state_plan_pol","planning_sch"] },
-    { parcel: "regional_plan",     notes: ["regional_plan"] },
-    { parcel: "contam_lan",        notes: ["contam_reg"] },
-    { parcel: "stk_route",         notes: ["stock_routes"] },
-    { parcel: "mine_int",          notes: ["mine_explor"] },
-    { parcel: "elvas_ref",         notes: ["elvas_check"] },
-    { parcel: "qld_cul_he",        notes: ["qld_heritage"] },
-    { parcel: "ind_cul_he",        notes: ["indig_cul_her"] },
-    { parcel: "nt_status",         notes: ["native_title"] },
-    { parcel: "plan_const",        notes: ["constraints"] },
-    { parcel: "coastal_mgmt",      notes: ["env_conserv"] },
-    { parcel: "veg_mgmt_cat",      notes: ["vegetation"] },
-    { parcel: "veg_mgmt_reg_eco",  notes: ["vegetation"] },
-    { parcel: "prop_addr",         notes: ["prop_location"] },
-    { parcel: "ten_hist",          notes: ["site_hist_bg"] }
+  const FIELD_NOTE_MAP=[
+    { parcel:"flooding",notes:["flood"] },
+    { parcel:"bushfire",notes:["bushfire"] },
+    { parcel:"plan_schem",notes:["state_plan_pol","planning_sch"] },
+    { parcel:"regional_plan",notes:["regional_plan"] },
+    { parcel:"contam_lan",notes:["contam_reg"] },
+    { parcel:"stk_route",notes:["stock_routes"] },
+    { parcel:"mine_int",notes:["mine_explor"] },
+    { parcel:"elvas_ref",notes:["elvas_check"] },
+    { parcel:"qld_cul_he",notes:["qld_heritage"] },
+    { parcel:"ind_cul_he",notes:["indig_cul_her"] },
+    { parcel:"nt_status",notes:["native_title"] },
+    { parcel:"plan_const",notes:["constraints"] },
+    { parcel:"coastal_mgmt",notes:["env_conserv"] },
+    { parcel:"veg_mgmt_cat",notes:["vegetation"] },
+    { parcel:"veg_mgmt_reg_eco",notes:["vegetation"] },
+    { parcel:"prop_addr",notes:["prop_location"] },
+    { parcel:"ten_hist",notes:["site_hist_bg"] }
   ];
 
-  // globals
-  let F_OID,F_GID,F_LOTPLAN;                // parcels fields
-  let N = {};                                // resolved notes fields
-  let SEARCH_FIELD_NAME = "lotplan";         // will resolve case
-  let selectedParcel=null, selectedNoteOID=null;
-  let _notesFilterKeys = null;
+  let F_OID,F_GID,F_LOTPLAN,SEARCH_FIELD_NAME="lotplan",N={},selectedParcel=null,selectedNoteOID=null,_notesFilterKeys=null;
+  let search,clearBtn;
 
-  // UI refs
-  const panel = $("panel"), sectionsHost = $("sections");
-  const btnSaveParcel = $("saveParcel");
-  const btnToggleNotes = $("btnToggleNotes");
-  const btnCloseNotes = $("btnCloseNotes");
-  const notesCol = $("notesCol");
-  const notesList = $("notesList");
-  const inlineNotesList = document.createElement("div"); inlineNotesList.className="noteList";
-
-  btnToggleNotes.onclick = ()=> notesCol.style.display = (notesCol.style.display==="flex")? "none":"flex";
-  btnCloseNotes.onclick  = ()=> notesCol.style.display = "none";
-
-  // Build dynamic Notes editor UI
   function buildNotesEditorUI(){
-    const host = document.getElementById("noteEditor");
-    const form = document.createElement("div");
-    form.className = "relForm";
+    const host=document.getElementById("noteEditor");
+    const form=document.createElement("div"); form.className="relForm";
     NOTES_SCHEMA.forEach(s=>{
-      const html = `
-        <div class="row">
-          <label>${s.label}</label>
-          <div class="field">
-            ${s.type==="textarea" ? `<textarea id="n_${s.key}" rows="2"></textarea>`
-                                   : `<input id="n_${s.key}" ${s.type==="date"?'type="date"':''}/>`}
-          </div>
-        </div>`;
-      form.insertAdjacentHTML("beforeend", html);
+      form.insertAdjacentHTML("beforeend",
+        `<div class="row"><label>${s.label}</label><div class="field">${
+          s.type==="textarea" ? `<textarea id="n_${s.key}" rows="2"></textarea>`
+                              : `<input id="n_${s.key}" ${s.type==="date"?'type="date"':''}/>`
+        }</div></div>`);
     });
     host.insertBefore(form, host.querySelector(".actionbar"));
   }
 
-  // Build parcel form sections (includes inline Notes block)
-  const SECTIONS = [
+  const SECTIONS=[
     { title:"Parcel Details", items:[
       { field:"lotplan", alias:"Lot/Plan", editable:false },
       { field:"title_ref", alias:"Title Reference", editable:true },
@@ -330,7 +261,7 @@ require([
       { field:"tenure", alias:"Tenure", editable:false },
       { field:"reg_owner", alias:"Registered Owner/Trustee", editable:true },
       { field:"shire_name", alias:"Local Government Area", editable:false },
-      { field:"__notes__", alias:"Notes", editable:false, custom:true }  // inline notes block
+      { field:"__notes__", alias:"Notes", editable:false, custom:true }
     ]},
     { title:"Administrative Attributes", items:[
       { field:"access_l", alias:"Access (Legal)", editable:true },
@@ -345,19 +276,6 @@ require([
       { field:"qld_cul_he", alias:"Qld Cultural Heritage", editable:true },
       { field:"ten_hist", alias:"Historical Tenure", editable:true }
     ]},
-    { title:"Physical, Biological & Economic", items:[
-      { field:"parcel_typ", alias:"Parcel Type", editable:true },
-      { field:"cover_typ",  alias:"Cover Type", editable:true },
-      { field:"plan_const", alias:"Plan Constraints", editable:true, textarea:true },
-      { field:"mau",        alias:"MAUT Use", editable:true },
-      { field:"p_mat",      alias:"Past Material", editable:true },
-      { field:"mine_int",   alias:"Mining Interest", editable:true },
-      { field:"epm_app",    alias:"EPM App", editable:true },
-      { field:"epm_granted",alias:"EPM Granted", editable:true },
-      { field:"ml_permit_app", alias:"ML Permit App", editable:true },
-      { field:"ml_granted", alias:"ML Granted", editable:true },
-      { field:"appln_int",  alias:"Exploration Permit", editable:true }
-    ]},
     { title:"Environment & Planning", items:[
       { field:"contam_lan", alias:"Contaminated Land", editable:true },
       { field:"stk_route",  alias:"Stock Route", editable:true },
@@ -368,296 +286,218 @@ require([
       { field:"coastal_mgmt", alias:"Coastal Management", editable:true },
       { field:"veg_mgmt_cat", alias:"Veg Mgmt Categories", editable:true },
       { field:"veg_mgmt_reg_eco", alias:"Veg Mgmt Reg Ecos", editable:true }
-    ]},
-    { title:"Social & Cultural", items:[
-      { field:"cul_mgmt_plan", alias:"Heritage Mgmt Plan", editable:true, textarea:true },
-      { field:"cul_studyarea_bdy", alias:"Study Area Bdy", editable:true, textarea:true },
-      { field:"cul_party", alias:"Party", editable:true }
     ]}
   ];
-  const FIELD_MAP = SECTIONS.flatMap(s=>s.items).filter(i=>!i.custom);
+  const FIELD_MAP=SECTIONS.flatMap(s=>s.items).filter(i=>!i.custom);
 
   function renderSections(){
-    const host = $("sections"); host.innerHTML = "";
+    const host=$("sections"); host.innerHTML="";
     for(const sec of SECTIONS){
-      const secDiv = document.createElement("section");
+      const secDiv=document.createElement("section");
       secDiv.className="section";
-      secDiv.innerHTML = `<header><h3>${sec.title}</h3></header><div class="body"></div>`;
-      const body = secDiv.querySelector(".body");
+      secDiv.innerHTML=`<header><h3>${sec.title}</h3></header><div class="body"></div>`;
+      const body=secDiv.querySelector(".body");
       for(const it of sec.items){
-        if (it.custom && it.field==="__notes__"){
-          const block = document.createElement("div");
-          block.innerHTML = `
+        if(it.custom && it.field==="__notes__"){
+          const block=document.createElement("div");
+          block.innerHTML=`
             <div class="row"><label>Notes</label>
               <div class="field">
                 <div class="noteList" id="inlineNotesHost"></div>
-                <div class="muted" style="margin-top:6px">
-                  <span class="link" id="openNotes">Open notes panel</span>
-                </div>
+                <div class="muted" style="margin-top:6px"><span class="link" id="openNotes">Open notes panel</span></div>
               </div>
             </div>`;
           body.appendChild(block);
-          block.querySelector("#openNotes").onclick = ()=>{ document.getElementById("btnToggleNotes").click(); };
+          block.querySelector("#openNotes").onclick=()=>{$("btnToggleNotes").click();};
           block.querySelector("#inlineNotesHost").replaceWith(inlineNotesList);
           continue;
         }
         const ctrl = it.textarea ? `<textarea id="${it.field}" ${it.editable?"":"disabled"}></textarea>`
                                  : `<input id="${it.field}" ${it.editable?"":"disabled"} />`;
-        body.insertAdjacentHTML("beforeend",
-          `<div class="row"><label for="${it.field}">${it.alias}</label><div class="field">${ctrl}</div></div>`);
+        body.insertAdjacentHTML("beforeend", `<div class="row"><label for="${it.field}">${it.alias}</label><div class="field">${ctrl}</div></div>`);
       }
       host.appendChild(secDiv);
     }
   }
 
-  // add mini “Notes” buttons by mapped fields
   function addFieldNoteButtons(){
     FIELD_NOTE_MAP.forEach(m=>{
-      const input = document.getElementById(m.parcel);
-      if(!input) return;
-      const row = input.closest(".row");
-      if(!row) return;
-      const lbl = row.querySelector("label");
-      if(!lbl) return;
-      const btn = document.createElement("button");
-      btn.className = "miniBtn";
-      btn.type = "button";
-      btn.textContent = "Notes";
-      btn.title = "Show notes for this topic";
-      btn.onclick = ()=> openNotesFor(m.notes);
+      const input=document.getElementById(m.parcel); if(!input) return;
+      const row=input.closest(".row"); const lbl=row?.querySelector("label"); if(!lbl) return;
+      const btn=document.createElement("button");
+      btn.className="miniBtn"; btn.type="button"; btn.textContent="Notes"; btn.title="Show notes for this topic";
+      btn.onclick=()=>openNotesFor(m.notes);
       lbl.appendChild(btn);
     });
   }
 
-  function openNotesFor(noteKeys){
-    _notesFilterKeys = noteKeys;
-    $("btnToggleNotes").click();   // open panel
-    loadNotes(_notesFilterKeys);   // filtered
-  }
+  function openNotesFor(noteKeys){ _notesFilterKeys=noteKeys; $("btnToggleNotes").click(); loadNotes(_notesFilterKeys); }
 
-  // make card HTML (clickable in side panel; plain inline)
-  function makeNoteCard(attrs, clickable, highlight){
-    const bits = [];
-    const title = (attrs[N.prepared]||"(no author)") + (attrs[N.date] ? " — " + fmt(attrs[N.date]) : "");
+  function makeNoteCard(attrs,clickable,highlight){
+    const bits=[]; const title=(attrs[N.prepared]||"(no author)")+(attrs[N.date]?" — "+fmt(attrs[N.date]):"");
     NOTES_SCHEMA.forEach(s=>{
-      if (s.key==="prepared" || s.key==="date") return;
-      const fld = N[s.key]; if(!fld) return;
-      let v = attrs[fld];
-      if (v==null || v==="") return;
-      if (s.type==="date") v = fmt(v);
-      bits.push(`<div class="kv"><span class="lbl">${s.label}:</span> ${v}</div>`);
+      if(s.key==="prepared"||s.key==="date") return;
+      const fld=N[s.key]; if(!fld) return; let v=attrs[fld]; if(v==null||v==="") return;
+      if(s.type==="date") v=fmt(v); bits.push(`<div class="kv"><span class="lbl">${s.label}:</span> ${v}</div>`);
     });
-    const cls = `${clickable ? "relItem" : "noteCard"} ${highlight ? "note-hit" : ""}`;
-    const data = clickable ? `data-oid="${attrs[N.oid]}"` : "";
-    return `<div class="${cls}" ${data}>
-              <div class="${clickable?'relHead':'head'}">${title}</div>
-              ${bits.join("") || `<div class="kv"><i class="muted">No details.</i></div>`}
-            </div>`;
+    const cls=`${clickable?"relItem":"noteCard"} ${highlight?"note-hit":""}`; const data=clickable?`data-oid="${attrs[N.oid]}"`:"";
+    return `<div class="${cls}" ${data}><div class="${clickable?'relHead':'head'}">${title}</div>${bits.join("")||`<div class="kv"><i class="muted">No details.</i></div>`}</div>`;
   }
 
-  // search (created after fields resolved to ensure correct case)
-  let search, clearBtn;
+  let F_OID,F_GID,F_LOTPLAN,N_resolved=false;
 
-  // load layers & bootstrap
   Promise.all([parcels.load(),notes.load()]).then(()=>{
-    // resolve parcel field names
-    F_OID     = findField(parcels,["OBJECTID","objectid"]);
-    F_GID     = findField(parcels,["globalid","GlobalID","GlobalID_1"]);
-    F_LOTPLAN = findField(parcels,["lotplan","LOTPLAN"]);
-    SEARCH_FIELD_NAME = F_LOTPLAN || "lotplan";
+    F_OID=findField(parcels,["OBJECTID","objectid"]);
+    F_GID=findField(parcels,["globalid","GlobalID","GlobalID_1"]);
+    F_LOTPLAN=findField(parcels,["lotplan","LOTPLAN"]); SEARCH_FIELD_NAME=F_LOTPLAN||"lotplan";
 
-    // resolve notes fields
-    for (const [k, name] of Object.entries(NOTE_FIELDS)) {
-      if (k==="oid") N.oid = findField(notes, [name,"OBJECTID","objectid"]);
-      else if (k==="fk") N.fk = findField(notes, [name,"ParcelGUID","parcelguid","guid"]);
-      else N[k] = findField(notes, [name]);
+    for(const [k,name] of Object.entries(NOTE_FIELDS)){
+      if(k==="oid") N.oid=findField(notes,[name,"OBJECTID","objectid"]);
+      else if(k==="fk") N.fk=findField(notes,[name,"ParcelGUID","parcelguid","guid"]);
+      else N[k]=findField(notes,[name]);
     }
+    N_resolved=true;
 
-    if (parcels.fullExtent) view.goTo(parcels.fullExtent);
-    toast("");
-
-    // search widget (uses resolved field)
-    search = new Search({
+    // search
+    const search=new Search({
       view, includeDefaultSources:false,
-      sources:[{ layer:parcels, searchFields:[SEARCH_FIELD_NAME], displayField:SEARCH_FIELD_NAME, outFields:["*"],
-                 name:"Lot/Plan", placeholder:SEARCH_HINT, resultGraphicEnabled:false }]
+      sources:[{layer:parcels,searchFields:[SEARCH_FIELD_NAME],displayField:SEARCH_FIELD_NAME,outFields:["*"],name:"Lot/Plan",placeholder:SEARCH_HINT,resultGraphicEnabled:false}]
     });
-    view.ui.add(search, "top-right");
-    search.on("select-result", (e)=> e.result?.feature && setParcel(e.result.feature));
+    view.ui.add(search,"top-right");
+    search.on("select-result",e=>e.result?.feature&&setParcel(e.result.feature));
 
-    // Clear button next to search
-    clearBtn = document.createElement("div");
+    const clearBtn=document.createElement("div");
     clearBtn.className="clearBtn"; clearBtn.title="Clear selection"; clearBtn.textContent="Clear";
-    clearBtn.onclick = clearSelection; view.ui.add(clearBtn, "top-right");
+    clearBtn.onclick=clearSelection; view.ui.add(clearBtn,"top-right");
 
-    // click selection
-    view.on("click", onMapClick);
+    view.on("click",onMapClick);
 
-    // build UIs
-    renderSections();
-    addFieldNoteButtons();
-    buildNotesEditorUI();
-  }).catch(e=>{console.error(e);toast("Layer failed to load or you are not signed in.");});
+    renderSections(); buildNotesEditorUI();
+    // delay buttons until DOM exists
+    setTimeout(addFieldNoteButtons, 0);
+  });
 
   async function onMapClick(evt){
-    const hit = await view.hitTest(evt);
-    const g = hit.results?.find(r=>r.graphic?.layer===parcels)?.graphic;
-    if (g) setParcel(g); else clearSelection();
+    const hit=await view.hitTest(evt);
+    const g=hit.results?.find(r=>r.graphic?.layer===parcels)?.graphic;
+    if(g) setParcel(g); else clearSelection();
   }
 
   function setParcel(g){
-    selectedParcel = g;
-
+    selectedParcel=g;
     panel.classList.add("open");
     sectionsHost.style.display="block";
-    btnSaveParcel.disabled=false;
-    btnToggleNotes.style.display="inline-block";
+    btnSaveParcel.disabled=false; btnToggleNotes.style.display="inline-block";
+    $("startHint").style.display="none"; $("parcelTag").style.display="inline-block";
+    $("parcelTag").textContent=g.attributes[F_LOTPLAN]||g.attributes[F_GID];
 
-    $("startHint").style.display="none";
-    $("parcelTag").style.display="inline-block";
-    $("parcelTag").textContent = g.attributes[F_LOTPLAN] || g.attributes[F_GID];
-
-    // highlight (blue)
     view.graphics.removeAll();
-    view.graphics.add(new Graphic({
-      geometry:g.geometry,
-      symbol:{ type:"simple-fill", color:[0,120,255,0.18], outline:{ type:"simple-line", color:[0,120,255,1], width:2 } }
-    }));
-    if (g.geometry?.extent) view.goTo(g.geometry.extent.expand(1.2)).catch(()=>{});
+    view.graphics.add(new Graphic({geometry:g.geometry,symbol:{type:"simple-fill",color:[0,120,255,0.18],outline:{type:"simple-line",color:[0,120,255,1],width:2}}}));
+    if(g.geometry?.extent) view.goTo(g.geometry.extent.expand(1.2)).catch(()=>{});
 
-    // populate parcel fields
     for(const m of FIELD_MAP){
       const el=$(m.field); if(!el) continue;
-      let v = g.attributes[m.field];
-      if (m.field==="lot_area" && v!=null) v=(v/10000).toFixed(3);
-      el.value = v ?? "";
+      let v=g.attributes[m.field]; if(m.field==="lot_area"&&v!=null) v=(v/10000).toFixed(3);
+      el.value=v??"";
     }
-
-    // load notes (clear any prior filter on normal select)
-    _notesFilterKeys = null;
-    loadNotes();
+    _notesFilterKeys=null; loadNotes();
   }
 
   function clearSelection(){
-    selectedParcel=null; selectedNoteOID=null;
-    view.graphics.removeAll();
-    panel.classList.remove("open");
-    sectionsHost.style.display="none";
-    btnSaveParcel.disabled=true;
-    btnToggleNotes.style.display="none";
-    $("parcelTag").style.display="none";
-    $("startHint").style.display="block";
-    notesCol.style.display="none";
+    selectedParcel=null; selectedNoteOID=null; view.graphics.removeAll();
+    panel.classList.remove("open"); sectionsHost.style.display="none"; btnSaveParcel.disabled=true; btnToggleNotes.style.display="none";
+    $("parcelTag").style.display="none"; $("startHint").style.display="block"; notesCol.style.display="none";
   }
 
   async function loadNotes(filterKeys=null){
+    if(!N_resolved||!selectedParcel) return;
     notesCol.style.display="flex";
-    notesList.innerHTML = "<div class='muted' style='padding:8px'>Loading…</div>";
-    inlineNotesList.innerHTML = "<div class='muted'>Loading…</div>";
+    notesList.innerHTML="<div class='muted' style='padding:8px'>Loading…</div>";
+    inlineNotesList.innerHTML="<div class='muted'>Loading…</div>";
     selectedNoteOID=null;
 
-    const id = selectedParcel.attributes[F_OID];
-    const rel = await parcels.queryRelatedFeatures({ relationshipId: REL_ID, objectIds:[id], outFields:["*"] });
-    let rows = rel[id]?.features ?? [];
+    const id=selectedParcel.attributes[F_OID];
+    const rel=await parcels.queryRelatedFeatures({relationshipId:REL_ID,objectIds:[id],outFields:["*"]});
+    let rows=rel[id]?.features??[];
 
-    // filter/highlight if triggered from a field button
-    let filtered = rows;
-    let highlightSet = new Set();
-    if (filterKeys && filterKeys.length){
-      filtered = rows.filter(f=>{
-        const a = f.attributes;
-        const match = filterKeys.some(k => {
-          const fld = N[k]; return fld && a[fld] != null && a[fld] !== "";
-        });
-        if (match) highlightSet.add(f.attributes[N.oid]);
-        return match;
+    let filtered=rows; let highlightSet=new Set();
+    if(filterKeys&&filterKeys.length){
+      filtered=rows.filter(f=>{
+        const a=f.attributes;
+        const match=filterKeys.some(k=>{const fld=N[k];return fld&&a[fld]!=null&&a[fld]!=="";});
+        if(match) highlightSet.add(f.attributes[N.oid]); return match;
       });
     }
+    $("relCount").textContent=filtered.length;
 
-    $("relCount").textContent = filtered.length;
-
-    notesList.innerHTML = filtered.length
-      ? filtered.map(f=>makeNoteCard(f.attributes,true, highlightSet.has(f.attributes[N.oid]))).join("")
+    notesList.innerHTML=filtered.length
+      ? filtered.map(f=>makeNoteCard(f.attributes,true,highlightSet.has(f.attributes[N.oid]))).join("")
       : "<div class='muted' style='padding:8px'>No notes for this topic.</div>";
 
-    inlineNotesList.innerHTML = rows.length
-      ? rows.map(f=>makeNoteCard(f.attributes,false, highlightSet.has(f.attributes[N.oid]))).join("")
+    inlineNotesList.innerHTML=rows.length
+      ? rows.map(f=>makeNoteCard(f.attributes,false,highlightSet.has(f.attributes[N.oid]))).join("")
       : "<div class='muted'>No notes.</div>";
 
-    // click to load editor
     [...notesList.querySelectorAll(".relItem")].forEach(div=>{
-      div.onclick = async ()=>{
-        selectedNoteOID = +div.getAttribute("data-oid");
-        const { features } = await notes.queryFeatures({ where: `${N.oid}=${selectedNoteOID}`, outFields:["*"] });
-        if (!features.length) return;
-        const a=features[0].attributes;
+      div.onclick=async ()=>{
+        selectedNoteOID=+div.getAttribute("data-oid");
+        const {features}=await notes.queryFeatures({where:`${N.oid}=${selectedNoteOID}`,outFields:["*"]});
+        if(!features.length) return; const a=features[0].attributes;
         NOTES_SCHEMA.forEach(s=>{
-          const el = document.getElementById(`n_${s.key}`); if(!el) return;
-          el.value = (s.type==="date")
-            ? (a[N[s.key]] ? fmt(a[N[s.key]]) : "")
-            : (a[N[s.key]] || "");
+          const el=$(`n_${s.key}`); if(!el) return;
+          el.value = (s.type==="date") ? (a[N[s.key]]?fmt(a[N[s.key]]):"") : (a[N[s.key]]||"");
         });
-        $("btnDeleteNote").disabled = false;
+        $("btnDeleteNote").disabled=false;
       };
     });
 
-    // came from a field button and nothing matched → prime editor for that topic
-    if (filterKeys && !filtered.length){
+    if(filterKeys&&!filtered.length){
       resetNoteForm();
-      const firstKey = filterKeys.find(k => N[k]);
-      const el = firstKey ? document.getElementById(`n_${firstKey}`) : null;
-      if (el) el.focus();
+      const firstKey=filterKeys.find(k=>N[k]);
+      const el=firstKey?$(`n_${firstKey}`):null; if(el) el.focus();
     }
   }
 
   function resetNoteForm(){
     if(!selectedParcel) return;
     NOTES_SCHEMA.forEach(s=>{
-      const el = document.getElementById(`n_${s.key}`);
-      if(!el) return;
-      if (s.key==="lotplan") el.value = selectedParcel.attributes[F_LOTPLAN] || "";
-      else el.value = "";
+      const el=$(`n_${s.key}`); if(!el) return;
+      if(s.key==="lotplan") el.value=selectedParcel.attributes[F_LOTPLAN]||"";
+      else el.value="";
     });
-    $("btnDeleteNote").disabled = true;
-    selectedNoteOID = null;
+    $("btnDeleteNote").disabled=true; selectedNoteOID=null;
   }
-  $("btnNewNote").onclick = resetNoteForm;
+  $("btnNewNote").onclick=resetNoteForm;
 
-  $("btnSaveNote").onclick = async ()=>{
+  $("btnSaveNote").onclick=async ()=>{
     if(!selectedParcel) return;
-    const parentGID = selectedParcel.attributes[F_GID];
-    const attrs = {};
-    // collect all fields from the form
-    NOTES_SCHEMA.forEach(s=>{
-      const el = document.getElementById(`n_${s.key}`); if(!el) return;
-      const v = el.value?.trim() || null;
-      if (N[s.key]) attrs[N[s.key]] = (s.type==="date" && v) ? new Date(v) : v;
+    const parentGID=selectedParcel.attributes[F_GID];
+    const attrs={}; NOTES_SCHEMA.forEach(s=>{
+      const el=$(`n_${s.key}`); if(!el) return;
+      const v=el.value?.trim()||null; if(N[s.key]) attrs[N[s.key]]=(s.type==="date"&&v)?new Date(v):v;
     });
-    if (N.fk) attrs[N.fk] = parentGID;
-
-    let res, ok=false;
-    if (selectedNoteOID){ attrs[N.oid]=selectedNoteOID; res=await notes.applyEdits({ updateFeatures:[{ attributes:attrs }] }); ok=res.updateFeatureResults?.[0]?.success; }
-    else                { res=await notes.applyEdits({ addFeatures:[{ attributes:attrs }] }); ok=res.addFeatureResults?.[0]?.success; }
-    if (ok){ loadNotes(_notesFilterKeys); } else { alert("Save failed"); console.log(res); }
+    if(N.fk) attrs[N.fk]=parentGID;
+    let res,ok=false;
+    if(selectedNoteOID){ attrs[N.oid]=selectedNoteOID; res=await notes.applyEdits({updateFeatures:[{attributes:attrs}]}); ok=res.updateFeatureResults?.[0]?.success; }
+    else              { res=await notes.applyEdits({addFeatures:[{attributes:attrs}]});       ok=res.addFeatureResults?.[0]?.success; }
+    if(ok){ loadNotes(_notesFilterKeys); } else { alert("Save failed"); console.log(res); }
   };
 
-  $("btnDeleteNote").onclick = async ()=>{
+  $("btnDeleteNote").onclick=async ()=>{
     if(!selectedNoteOID) return;
-    const res = await notes.applyEdits({ deleteFeatures:[{ objectId: selectedNoteOID }] });
-    if (res.deleteFeatureResults?.[0]?.success){ selectedNoteOID=null; loadNotes(_notesFilterKeys); }
+    const res=await notes.applyEdits({deleteFeatures:[{objectId:selectedNoteOID}]});
+    if(res.deleteFeatureResults?.[0]?.success){ selectedNoteOID=null; loadNotes(_notesFilterKeys); }
     else { alert("Delete failed"); console.log(res); }
   };
 
-  // Save parcel
-  btnSaveParcel.onclick = ()=>{
+  btnSaveParcel.onclick=()=>{
     if(!selectedParcel) return;
-    const upd = { ...selectedParcel.attributes };
-    for(const m of FIELD_MAP){ const el=$(m.field); if(el && m.editable){ upd[m.field] = el.value || null; } }
-    parcels.applyEdits({ updateFeatures:[{ attributes:upd }] })
-      .then(r=> alert(r.updateFeatureResults?.[0]?.success ? "✅ Saved" : "❌ Save failed"))
-      .catch(e=> alert("❌ Save error: "+e.message));
+    const upd={...selectedParcel.attributes};
+    for(const m of FIELD_MAP){ const el=$(m.field); if(el && m.editable){ upd[m.field]=el.value||null; } }
+    parcels.applyEdits({updateFeatures:[{attributes:upd}]})
+      .then(r=>alert(r.updateFeatureResults?.[0]?.success?"✅ Saved":"❌ Save failed"))
+      .catch(e=>alert("❌ Save error: "+e.message));
   };
-
 });
 </script>
 </body>
