@@ -11,7 +11,6 @@
   #wrap{display:flex;height:100%}
   #map{position:relative;flex:1}
   #view{position:absolute;inset:0}
-  /* right panel */
   #panel{width:var(--panelWCollapsed);max-width:680px;background:#fff;border-left:1px solid #e6e6e6;overflow:auto;transition:width .2s ease}
   #panel.open{width:var(--panelW)}
   #panel .pad{padding:14px}
@@ -30,10 +29,18 @@
   .btn{background:#003087;color:#fff;border:0;border-radius:8px;padding:8px 12px;cursor:pointer}
   .btn.secondary{background:#e9eefc;color:#003087}
   .pill{display:inline-block;border:1px solid #d0d7e2;border-radius:999px;padding:2px 8px;font-size:12px;background:#f5f8ff;margin-left:6px}
-  /* related side column */
-  #relatedCol{width:320px;min-width:280px;border-left:1px solid #e6e6e6;background:#fafbff;display:none;flex-direction:column}
-  #relatedCol header{display:flex;align-items:center;justify-content:space-between;padding:10px;border-bottom:1px solid #e6e6e6;font-weight:600}
-  #relatedList{padding:10px;overflow:auto}
+  /* Notes list (inline) */
+  .noteList{display:grid;gap:8px;max-height:180px;overflow:auto;margin-top:6px}
+  .noteCard{border:1px solid #e1e7f5;background:#fff;border-radius:10px;padding:8px}
+  .noteCard .head{font-weight:600;margin-bottom:4px}
+  .noteCard .kv{font-size:13px;margin:2px 0}
+  .noteCard .lbl{color:#555}
+  .link{color:#003087;cursor:pointer;text-decoration:underline}
+  /* Right notes panel */
+  #notesCol{width:320px;min-width:280px;border-left:1px solid #e6e6e6;background:#fafbff;display:none;flex-direction:column}
+  #notesCol header{display:flex;align-items:center;justify-content:space-between;padding:10px;border-bottom:1px solid #e6e6e6;font-weight:600}
+  #relCount{margin-left:6px}
+  #notesList{padding:10px;overflow:auto}
   .relItem{border:1px solid #e1e7f5;background:#fff;border-radius:8px;padding:8px;margin:6px 0;cursor:pointer}
   .relHead{font-weight:600;margin-bottom:4px}
   .relForm .row{margin:6px 0}
@@ -56,23 +63,24 @@
       <h2>Section 16 Assessment <span id="parcelTag" class="pill" style="display:none"></span></h2>
       <div id="startHint" class="muted">Select a parcel on the map or search Lot/Plan.</div>
 
+      <!-- sections are built here -->
       <div id="sections" style="display:none"></div>
 
       <div class="actionbar">
         <button id="saveParcel" class="btn" disabled>Save Parcel</button>
-        <button id="btnToggleRelated" class="btn secondary" style="display:none">Related</button>
+        <button id="btnToggleNotes" class="btn secondary" style="display:none">Notes</button>
       </div>
     </div>
   </div>
 
-  <!-- collapsible related column -->
-  <div id="relatedCol">
+  <!-- NOTES SIDE PANEL -->
+  <div id="notesCol">
     <header>
-      <span>Related notes <span id="relCount" class="pill">0</span></span>
-      <button id="btnCloseRelated" class="btn secondary">Hide</button>
+      <span>Notes <span id="relCount" class="pill">0</span></span>
+      <button id="btnCloseNotes" class="btn secondary">Hide</button>
     </header>
-    <div id="relatedList"></div>
-    <div id="relatedEditor" class="relForm" style="padding:10px;border-top:1px solid #e6e6e6;">
+    <div id="notesList"></div>
+    <div id="noteEditor" class="relForm" style="padding:10px;border-top:1px solid #e6e6e6;">
       <div style="font-weight:600;margin:4px 0 8px">Add / Edit Note</div>
       <div class="row"><label>Prepared by</label><div class="field"><input id="r_preparedby"/></div></div>
       <div class="row"><label>Note Date</label><div class="field"><input id="r_date" type="date"/></div></div>
@@ -95,13 +103,13 @@ require([
   "esri/widgets/Search","esri/Graphic"
 ], function(esriConfig, esriId, Map, MapView, FeatureLayer, Search, Graphic){
 
-  /* ===== CONFIG - EDIT THESE ===== */
+  /* ===== CONFIG (edit URLs if needed) ===== */
   const PORTAL_URL  = "https://uat-qportal.information.qld.gov.au/portal";
   const PARCELS_URL = "https://uat-qportal.information.qld.gov.au/arcgis/rest/services/IDI/LEAP_ClaimParcels_new/FeatureServer/0";
   const NOTES_URL   = "https://uat-qportal.information.qld.gov.au/arcgis/rest/services/IDI/LEAP_ClaimParcels_new/FeatureServer/1";
   const REL_ID      = 0;              // parcels -> notes
-  const SEARCH_FIELD= "lotplan";      // change to LOTPLAN if that’s the actual name
-  const NOTE_FIELDS = {               // field names in notes table
+  const SEARCH_FIELD= "lotplan";      // change to LOTPLAN if needed
+  const NOTE_FIELDS = {               // table field names
     oid: "objectid",
     fk:  "parcelguid",
     prepared: "s16_preparedby",
@@ -110,9 +118,9 @@ require([
     recs: "s16_recommendations",
     lotplan: "s16_lotplan"
   };
-  /* =============================== */
+  /* ======================================= */
 
-  // trust/CORS and portal
+  // trust/CORS & portal
   try{const u=new URL(PARCELS_URL);esriConfig.request.trustedServers.push(`${u.protocol}//${u.host}`);esriConfig.request.corsEnabledServers.push(u.host);}catch(e){}
   esriConfig.portalUrl = PORTAL_URL;
   esriId.checkSignInStatus(PORTAL_URL + "/sharing").catch(()=>esriId.signIn(PORTAL_URL + "/sharing"));
@@ -141,10 +149,9 @@ require([
   clearBtn.className="clearBtn"; clearBtn.title="Clear selection"; clearBtn.textContent="Clear";
   clearBtn.onclick = clearSelection; view.ui.add(clearBtn, "top-right");
 
-  // field resolution (case-insensitive)
+  // resolve fields (case-insensitive)
   function findField(layer, names){const low=layer.fields.map(f=>f.name.toLowerCase());for(const n of names){const i=low.indexOf(n.toLowerCase());if(i>-1)return layer.fields[i].name;}return null;}
-  let F_OID, F_GID, F_LOTPLAN;   // parcels
-  let N_OID, N_FK, N_PREP, N_DATE, N_REG, N_RECS, N_LOTP; // notes
+  let F_OID,F_GID,F_LOTPLAN, N_OID,N_FK,N_PREP,N_DATE,N_REG,N_RECS,N_LOTP;
 
   Promise.all([parcels.load(),notes.load()]).then(()=>{
     F_OID     = findField(parcels,["OBJECTID","objectid"]);
@@ -164,18 +171,21 @@ require([
 
     view.on("click", onMapClick);
     search.on("select-result", (e)=> e.result?.feature && setParcel(e.result.feature));
+
     renderSections();   // build form (hidden until select)
   }).catch(e=>{console.error(e);toast("Layer failed to load or you are not signed in.");});
 
   const panel = $("panel"), sectionsHost = $("sections");
   const btnSaveParcel = $("saveParcel");
-  const btnToggleRelated = $("btnToggleRelated");
-  const btnCloseRelated = $("btnCloseRelated");
-  const relatedCol = $("relatedCol");
-  const relatedList = $("relatedList");
+  const btnToggleNotes = $("btnToggleNotes");
+  const btnCloseNotes = $("btnCloseNotes");
+  const notesCol = $("notesCol");
+  const notesList = $("notesList");
+  const inlineNotesList = document.createElement("div"); // inline notes block
+  inlineNotesList.className = "noteList";
 
-  btnToggleRelated.onclick = ()=> relatedCol.style.display = (relatedCol.style.display==="flex")? "none":"flex";
-  btnCloseRelated.onclick = ()=> relatedCol.style.display = "none";
+  btnToggleNotes.onclick = ()=> notesCol.style.display = (notesCol.style.display==="flex")? "none":"flex";
+  btnCloseNotes.onclick  = ()=> notesCol.style.display = "none";
 
   let selectedParcel=null;
   let selectedNoteOID=null;
@@ -192,7 +202,7 @@ require([
     panel.classList.add("open");
     sectionsHost.style.display="block";
     btnSaveParcel.disabled=false;
-    btnToggleRelated.style.display="inline-block";
+    btnToggleNotes.style.display="inline-block";
 
     $("startHint").style.display="none";
     $("parcelTag").style.display="inline-block";
@@ -206,7 +216,7 @@ require([
     }));
     if (g.geometry?.extent) view.goTo(g.geometry.extent.expand(1.2)).catch(()=>{});
 
-    // populate fields
+    // fill parcel fields
     for(const m of FIELD_MAP){
       const el=$(m.field); if(!el) continue;
       let v = g.attributes[m.field];
@@ -214,8 +224,8 @@ require([
       el.value = v ?? "";
     }
 
-    // load related notes
-    loadRelated();
+    // load notes (for both inline list + side panel)
+    loadNotes();
   }
 
   function clearSelection(){
@@ -224,51 +234,64 @@ require([
     panel.classList.remove("open");
     sectionsHost.style.display="none";
     btnSaveParcel.disabled=true;
-    btnToggleRelated.style.display="none";
+    btnToggleNotes.style.display="none";
     $("parcelTag").style.display="none";
     $("startHint").style.display="block";
-    relatedCol.style.display="none";
+    notesCol.style.display="none";
   }
 
-  async function loadRelated(){
-    relatedCol.style.display="flex";
-    relatedList.innerHTML = "<div class='muted' style='padding:8px'>Loading…</div>";
+  // ===== NOTES (related records) =====
+  async function loadNotes(){
+    notesCol.style.display="flex";
+    notesList.innerHTML = "<div class='muted' style='padding:8px'>Loading…</div>";
+    inlineNotesList.innerHTML = "<div class='muted'>Loading…</div>";
     selectedNoteOID=null;
+
     const id = selectedParcel.attributes[F_OID];
     const rel = await parcels.queryRelatedFeatures({ relationshipId: REL_ID, objectIds:[id], outFields:["*"] });
     const rows = rel[id]?.features ?? [];
     $("relCount").textContent = rows.length;
 
-    if(!rows.length){ relatedList.innerHTML = "<div class='muted' style='padding:8px'>No notes.</div>"; resetNoteForm(); return; }
+    // Build full card HTML for all fields
+    const cardHTML = (a, withClick=false) => {
+      const dt = a[N_DATE] ? fmt(a[N_DATE]) : "";
+      return `
+        <div class="${withClick?'relItem':'noteCard'}" ${withClick?`data-oid="${a[N_OID]}"`:''}>
+          <div class="${withClick?'relHead':'head'}">${a[N_PREP]||"(no author)"} ${dt?("— "+dt):""}</div>
+          <div class="kv"><span class="lbl">Regional Planning:</span> ${a[N_REG]||"<i class='muted'>—</i>"}</div>
+          <div class="kv"><span class="lbl">Recommendations:</span> ${a[N_RECS]||"<i class='muted'>—</i>"}</div>
+          <div class="kv"><span class="lbl">Lot/Plan:</span> ${a[N_LOTP]||"<i class='muted'>—</i>"}</div>
+        </div>`;
+    };
 
-    relatedList.innerHTML = rows.map(f=>{
-      const a=f.attributes;
-      const when = a[N_DATE] ? new Date(a[N_DATE]).toISOString().slice(0,10) : "";
-      const head = (a[N_PREP]||"(no author)") + (when?(" — "+when):"");
-      return `<div class="relItem" data-oid="${a[N_OID]}">
-                <div class="relHead">${head}</div>
-                <div>${(a[N_REG]||"").substring(0,240)}</div>
-              </div>`;
-    }).join("");
+    // Right panel list (clickable -> loads editor)
+    notesList.innerHTML = rows.length
+      ? rows.map(f=>cardHTML(f.attributes,true)).join("")
+      : "<div class='muted' style='padding:8px'>No notes.</div>";
 
-    // click-to-edit
-    [...relatedList.querySelectorAll(".relItem")].forEach(div=>{
+    // Inline list (read-only) under Parcel Details
+    inlineNotesList.innerHTML = rows.length
+      ? rows.map(f=>cardHTML(f.attributes,false)).join("")
+      : "<div class='muted'>No notes.</div>";
+
+    // wire clicks (right panel)
+    [...notesList.querySelectorAll(".relItem")].forEach(div=>{
       div.onclick = async ()=>{
         selectedNoteOID = +div.getAttribute("data-oid");
         const { features } = await notes.queryFeatures({ where: `${N_OID}=${selectedNoteOID}`, outFields:["*"] });
-        if (features.length){
-          const a=features[0].attributes;
-          $("r_preparedby").value = a[N_PREP] || "";
-          $("r_date").value       = a[N_DATE] ? new Date(a[N_DATE]).toISOString().slice(0,10) : "";
-          $("r_regional_plan").value = a[N_REG] || "";
-          $("r_recommendations").value = a[N_RECS] || "";
-          $("r_lotplan").value = a[N_LOTP] || (selectedParcel.attributes[F_LOTPLAN] || "");
-          $("btnDeleteNote").disabled = false;
-        }
+        if (!features.length) return;
+        const a=features[0].attributes;
+        $("r_preparedby").value = a[N_PREP] || "";
+        $("r_date").value       = a[N_DATE] ? fmt(a[N_DATE]) : "";
+        $("r_regional_plan").value = a[N_REG] || "";
+        $("r_recommendations").value = a[N_RECS] || "";
+        $("r_lotplan").value = a[N_LOTP] || (selectedParcel.attributes[F_LOTPLAN] || "");
+        $("btnDeleteNote").disabled = false;
       };
     });
 
-    resetNoteForm(); // ready to add new if none selected
+    // reset editor defaults
+    resetNoteForm();
   }
 
   function resetNoteForm(){
@@ -284,35 +307,28 @@ require([
   $("btnSaveNote").onclick = async ()=>{
     if(!selectedParcel) return;
     const parentGID = selectedParcel.attributes[F_GID];
-
     const attrs = {};
     if (N_PREP) attrs[N_PREP] = $("r_preparedby").value || null;
     if (N_DATE) attrs[N_DATE] = parseDate($("r_date").value);
     if (N_REG)  attrs[N_REG]  = $("r_regional_plan").value || null;
     if (N_RECS) attrs[N_RECS] = $("r_recommendations").value || null;
     if (N_LOTP) attrs[N_LOTP] = $("r_lotplan").value || selectedParcel.attributes[F_LOTPLAN] || null;
-    if (N_FK)   attrs[N_FK]   = parentGID; // link child → parent
+    if (N_FK)   attrs[N_FK]   = parentGID;
 
     let res, ok=false;
-    if (selectedNoteOID){ // update
-      attrs[N_OID] = selectedNoteOID;
-      res = await notes.applyEdits({ updateFeatures:[{ attributes:attrs }] });
-      ok = res.updateFeatureResults?.[0]?.success;
-    } else {             // insert
-      res = await notes.applyEdits({ addFeatures:[{ attributes:attrs }] });
-      ok = res.addFeatureResults?.[0]?.success;
-    }
-    if (ok){ loadRelated(); } else { alert("Save failed"); console.log(res); }
+    if (selectedNoteOID){ attrs[N_OID]=selectedNoteOID; res=await notes.applyEdits({ updateFeatures:[{ attributes:attrs }] }); ok=res.updateFeatureResults?.[0]?.success; }
+    else                { res=await notes.applyEdits({ addFeatures:[{ attributes:attrs }] }); ok=res.addFeatureResults?.[0]?.success; }
+    if (ok){ loadNotes(); } else { alert("Save failed"); console.log(res); }
   };
 
   $("btnDeleteNote").onclick = async ()=>{
     if(!selectedNoteOID) return;
     const res = await notes.applyEdits({ deleteFeatures:[{ objectId: selectedNoteOID }] });
-    if (res.deleteFeatureResults?.[0]?.success){ selectedNoteOID=null; loadRelated(); }
+    if (res.deleteFeatureResults?.[0]?.success){ selectedNoteOID=null; loadNotes(); }
     else { alert("Delete failed"); console.log(res); }
   };
 
-  /* ----------- parcel form (after selection) ----------- */
+  /* -------- Parcel form / sections (includes Notes section inline) -------- */
   const SECTIONS = [
     { title:"Parcel Details", items:[
       { field:"lotplan", alias:"Lot/Plan", editable:false },
@@ -321,7 +337,8 @@ require([
       { field:"lot_area", alias:"Area (ha)", editable:true },
       { field:"tenure", alias:"Tenure", editable:false },
       { field:"reg_owner", alias:"Registered Owner/Trustee", editable:true },
-      { field:"shire_name", alias:"Local Government Area", editable:false }
+      { field:"shire_name", alias:"Local Government Area", editable:false },
+      { field:"__notes__", alias:"Notes", editable:false, custom:true }  // <-- INLINE NOTES SECTION
     ]},
     { title:"Administrative Attributes", items:[
       { field:"access_l", alias:"Access (Legal)", editable:true },
@@ -366,7 +383,7 @@ require([
       { field:"cul_party", alias:"Party", editable:true }
     ]}
   ];
-  const FIELD_MAP = SECTIONS.flatMap(s=>s.items);
+  const FIELD_MAP = SECTIONS.flatMap(s=>s.items).filter(i=>!i.custom);
 
   function renderSections(){
     const host = $("sections"); host.innerHTML = "";
@@ -376,26 +393,23 @@ require([
       secDiv.innerHTML = `<header><h3>${sec.title}</h3></header><div class="body"></div>`;
       const body = secDiv.querySelector(".body");
       for(const it of sec.items){
-        const ctrl = it.textarea ? `<textarea id="${it.field}" ${it.editable?"":"disabled"}></textarea>`
-                                 : `<input id="${it.field}" ${it.editable?"":"disabled"} />`;
-        body.insertAdjacentHTML("beforeend",
-          `<div class="row"><label for="${it.field}">${it.alias}</label><div class="field">${ctrl}</div></div>`);
-      }
-      host.appendChild(secDiv);
-    }
-  }
-
-  // save parcel
-  btnSaveParcel.onclick = ()=>{
-    if(!selectedParcel) return;
-    const upd = { ...selectedParcel.attributes };
-    for(const m of FIELD_MAP){ const el=$(m.field); if(el && m.editable){ upd[m.field] = el.value || null; } }
-    parcels.applyEdits({ updateFeatures:[{ attributes:upd }] })
-      .then(r=> alert(r.updateFeatureResults?.[0]?.success ? "✅ Saved" : "❌ Save failed"))
-      .catch(e=> alert("❌ Save error: "+e.message));
-  };
-
-});
-</script>
-</body>
-</html>
+        if (it.custom && it.field==="__notes__"){
+          // Inline notes list + link that opens side panel
+          const block = document.createElement("div");
+          block.innerHTML = `
+            <div class="row"><label>Notes</label>
+              <div class="field">
+                <div class="noteList" id="inlineNotesHost"></div>
+                <div class="muted" style="margin-top:6px">
+                  <span class="link" id="openNotes">Open notes panel</span>
+                </div>
+              </div>
+            </div>`;
+          body.appendChild(block);
+          // attach host & open link
+          block.querySelector("#openNotes").onclick = ()=>{ document.getElementById("btnToggleNotes").click(); };
+          // use the created inline list container
+          block.querySelector("#inlineNotesHost").replaceWith(inlineNotesList);
+          continue;
+        }
+        const ctrl = it.t
