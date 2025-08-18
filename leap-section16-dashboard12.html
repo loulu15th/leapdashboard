@@ -5,31 +5,89 @@
 <title>LEAP – Section 16 (Dashboard V2)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <link rel="stylesheet" href="https://js.arcgis.com/4.29/esri/themes/light/main.css" />
-<style>
-  :root{ --panelW: 33vw; --panelWCollapsed: 300px; }
-  html,body{height:100%;margin:0}
-  #wrap{display:flex;height:100%}
-  #map{position:relative;flex:1}
-  #view{position:absolute;inset:0}
-  /* right panel */
-  #panel{width:var(--panelWCollapsed);max-width:760px;background:#fff;border-left:1px solid #e6e6e6;overflow:auto;transition:width .2s ease}
-  #panel.open{width:var(--panelW)}
-  #panel .pad{padding:14px}
-  h2{margin:6px 0 2px;color:#003087}
-  .sub{color:#666;margin:0 0 10px}
-  .section{margin:10px 0;border-top:1px solid #eee}
-  .section>header{display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:#fff;padding:8px 0;z-index:1}
-  .section h3{margin:0;color:#003087;font-weight:600}
-  .row{display:flex;gap:8px;margin:6px 0}
-  .row label{width:36%;font-weight:600}
-  .row .field{flex:1}
-  input,textarea{width:100%;padding:8px 10px;border:1px solid #d9d9d9;border-radius:8px;font-size:14px}
-  textarea{min-height:70px;resize:vertical}
-  .muted{color:#777}
-  .actionbar{display:flex;gap:8px;justify-content:flex-end;margin:14px 0}
-  .btn{background:#003087;color:#fff;border:0;border-radius:8px;padding:8px 12px;cursor:pointer}
-  .btn.secondary{background:#e9eefc;color:#003087}
-  .pill{display:inline-block;border:1px solid #d0d7e2;border-radius:999px;padding:2px 8px;font-size:12px;background:#f5f8ff;margin-left:6px}
+<style>/* WIDTH PRESETS */
+:root{
+  /* was: 33vw / 300px */
+  --panelW: 42vw;            /* width when a parcel is selected */
+  --panelWCollapsed: 380px;  /* width when idle (shows headings) */
+}
+
+/* right panel */
+#panel{
+  width:var(--panelWCollapsed);
+  max-width:820px;           /* was 760px */
+  background:#fff;
+  border-left:1px solid #e6e6e6;
+  overflow-y:auto;           /* only vertical scroll */
+  overflow-x:hidden;
+  transition:width .2s ease;
+}
+#panel.open{ width:var(--panelW); }
+
+#panel .pad{ padding:16px 18px; }    /* a hair more breathing room */
+
+/* form rows */
+.row{ display:flex; gap:12px; margin:8px 0; }
+.row label{
+  width:40%;                 /* was 36% */
+  font-weight:600;
+  line-height:1.25;
+  white-space:normal;        /* allow wrapping for long labels */
+}
+.row .field{ flex:1; }
+
+/* inputs & textareas */
+input, textarea{
+  width:100%;
+  padding:10px 12px;         /* was 8px 10px */
+  border:1px solid #d9d9d9;
+  border-radius:10px;
+  font-size:14px;
+}
+textarea{
+  min-height:96px;           /* was ~70px — makes each note box less stubby */
+  resize:vertical;
+}
+
+/* inline Notes list (under Parcel Details) */
+.noteList{
+  display:grid;
+  gap:10px;
+  max-height:280px;          /* was 220px */
+  overflow:auto;
+  margin-top:8px;
+}
+
+/* side Notes panel */
+#notesCol{
+  width:420px;               /* was 360px */
+  min-width:360px;
+  border-left:1px solid #e6e6e6;
+  background:#fafbff;
+  display:none;
+  flex-direction:column;
+}
+
+/* mini Notes buttons & highlight (unchanged, just here for context) */
+.miniBtn{
+  margin-left:6px; padding:2px 8px; border:1px solid #d0d7e2;
+  border-radius:999px; background:#f5f8ff; font-size:12px; cursor:pointer;
+}
+.miniBtn:hover{ background:#eaf1ff; }
+.note-hit{ outline:2px solid #003087; box-shadow:0 0 0 2px #0030871f; }
+
+/* responsive: narrow screens fall back to a single wide panel */
+@media (max-width: 1200px){
+  :root{ --panelW: 52vw; }
+  #notesCol{ width:380px; min-width:320px; }
+}
+@media (max-width: 980px){
+  :root{ --panelW: 100vw; }
+  #panel{ width:100vw; }
+  #notesCol{ width:100vw; min-width:auto; }
+  .row label{ width:42%; }
+}
+
 
   /* inline Notes list */
   .noteList{display:grid;gap:8px;max-height:220px;overflow:auto;margin-top:6px}
