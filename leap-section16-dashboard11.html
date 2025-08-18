@@ -124,4 +124,186 @@ require([
   esriId.checkSignInStatus(PORTAL_URL + "/sharing").catch(()=>esriId.signIn(PORTAL_URL + "/sharing"));
 
   // resolve fields (case-insensitive)
-  function findField(layer, names){const low=layer.fields.map(f=>f.name.toLowerCase());for(const n of names){const i=low.indexOf(n.toLowerCase());
+  function findField(layer, names){const low=layer.fields.map(f=>f.name.toLowerCase());for(const n of names){const i=low.indexOf(n.toLowerCase());if(i>-1)return layer.fields[i].name;}return null;}
+  let F_OID,F_GID,F_LOTPLAN;
+
+  Promise.all([parcels.load(),notes.load()]).then(()=>{
+    F_OID     = findField(parcels,["OBJECTID","objectid"]);
+    F_GID     = findField(parcels,["globalid","GlobalID","GlobalID_1"]);
+    F_LOTPLAN = findField(parcels,[SEARCH_FIELD]);
+    if (parcels.fullExtent) view.goTo(parcels.fullExtent);
+    toast("");
+
+    view.on("click", onMapClick);
+    search.on("select-result", (e)=> e.result?.feature && setParcel(e.result.feature));
+
+    // render static form (hidden initially)
+    renderSections();
+  }).catch(e=>{console.error(e);toast("Layer failed to load or you are not signed in.");});
+
+  // UI elements
+  const panel = $("panel");
+  const sectionsHost = $("sections");
+  const btnSave = $("saveParcel");
+  const btnRel  = $("toggleRelated");
+
+  let selectedParcel=null;
+
+  async function onMapClick(evt){
+    const hit = await view.hitTest(evt);
+    const g = hit.results?.find(r=>r.graphic?.layer===parcels)?.graphic;
+    if (g) setParcel(g); else clearSelection();
+  }
+
+  function setParcel(g){
+    selectedParcel = g;
+
+    // expand panel + show sections
+    panel.classList.add("open");
+    sectionsHost.style.display = "block";
+    btnSave.disabled = false;
+    btnRel.style.display = "inline-block";
+
+    // header tag
+    $("parcelTag").style.display="inline-block";
+    $("parcelTag").textContent = g.attributes[F_LOTPLAN] || g.attributes[F_GID];
+
+    // blue highlight
+    view.graphics.removeAll();
+    view.graphics.add(new Graphic({
+      geometry:g.geometry,
+      symbol:{ type:"simple-fill", color:[0,120,255,0.18], outline:{ type:"simple-line", color:[0,120,255,1], width:2 } }
+    }));
+    if (g.geometry?.extent) view.goTo(g.geometry.extent.expand(1.2)).catch(()=>{});
+
+    // populate fields
+    for(const m of FIELD_MAP){
+      const el=$(m.field); if(!el) continue;
+      let v = g.attributes[m.field];
+      if (m.field==="lot_area" && v!=null) v=(v/10000).toFixed(3);
+      el.value = v ?? "";
+    }
+
+    // load related (kept lightweight)
+    loadRelated();
+  }
+
+  function clearSelection(){
+    selectedParcel=null;
+    view.graphics.removeAll();
+    panel.classList.remove("open");
+    sectionsHost.style.display = "none";
+    btnSave.disabled = true;
+    btnRel.style.display = "none";
+    $("parcelTag").style.display="none";
+    $("relatedCol").style.display="none";
+    $("startHint").style.display = "block";
+  }
+
+  // Related list
+  async function loadRelated(){
+    $("relatedList").innerHTML = "<div class='muted'>Loading…</div>";
+    if(!selectedParcel){$("relatedCol").style.display="none";return;}
+    $("relatedCol").style.display="flex";
+    const id = selectedParcel.attributes[F_OID];
+    const rel = await parcels.queryRelatedFeatures({ relationshipId: REL_ID, objectIds:[id], outFields:["*"] });
+    const rows = rel[id]?.features ?? [];
+    $("relCount").textContent = rows.length;
+    $("relatedList").innerHTML = rows.length
+      ? rows.map(f=>{
+          const a=f.attributes; const dt=a.s16_note_date?new Date(a.s16_note_date).toISOString().slice(0,10):"";
+          return `<div class="relItem"><div class="relHead">${a.s16_preparedby||"(no author)"} ${dt?("— "+dt):""}</div>
+                  <div>${(a.s16_regional_plan||"").substring(0,220)}</div></div>`;
+        }).join("")
+      : "<div class='muted'>No notes.</div>";
+  }
+  btnRel.onclick = ()=>{ const rc=$("relatedCol"); rc.style.display = (rc.style.display==="flex")?"none":"flex"; };
+
+  // Save parcel
+  btnSave.onclick = ()=>{
+    if(!selectedParcel) return;
+    const upd = { ...selectedParcel.attributes };
+    for(const m of FIELD_MAP){ const el=$(m.field); if(el && m.editable){ upd[m.field] = el.value || null; } }
+    parcels.applyEdits({ updateFeatures:[{ attributes:upd }] })
+      .then(r=> alert(r.updateFeatureResults?.[0]?.success ? "✅ Saved" : "❌ Save failed"))
+      .catch(e=> alert("❌ Save error: "+e.message));
+  };
+
+  /* ----------------- FORM LAYOUT -----------------
+     Keep/adjust fields to match your schema. These are shown after selection.
+  ------------------------------------------------*/
+  const SECTIONS = [
+    { title:"Parcel Details", items:[
+      { field:"lotplan", alias:"Lot/Plan", editable:false },
+      { field:"title_ref", alias:"Title Reference", editable:true },
+      { field:"prop_addr", alias:"Property Address", editable:true },
+      { field:"lot_area", alias:"Area (ha)", editable:true },
+      { field:"tenure", alias:"Tenure", editable:false },
+      { field:"reg_owner", alias:"Registered Owner/Trustee", editable:true },
+      { field:"shire_name", alias:"Local Government Area", editable:false }
+    ]},
+    { title:"Administrative Attributes", items:[
+      { field:"access_l", alias:"Access (Legal)", editable:true },
+      { field:"access_p", alias:"Access (Practical)", editable:true },
+      { field:"qvas_val", alias:"Current Valuation", editable:true },
+      { field:"elvas_ref", alias:"eLVAS Cases", editable:true },
+      { field:"surv_ind", alias:"Survey Indicator", editable:false }
+    ]},
+    { title:"Site History & Background", items:[
+      { field:"nt_status", alias:"Native Title Status", editable:true },
+      { field:"ind_cul_he", alias:"Indigenous Cult Heritage", editable:true },
+      { field:"qld_cul_he", alias:"Qld Cult Heritage", editable:true },
+      { field:"ten_hist", alias:"Historical Tenure", editable:true }
+    ]},
+    { title:"Physical, Biological & Economic", items:[
+      { field:"parcel_typ", alias:"Parcel Type", editable:true },
+      { field:"cover_typ", alias:"Cover Type", editable:true },
+      { field:"plan_const", alias:"Plan Constraints", editable:true, textarea:true },
+      { field:"mau", alias:"MAUT Use", editable:true },
+      { field:"p_mat", alias:"Past Material", editable:true },
+      { field:"mine_int", alias:"Mining Interest", editable:true },
+      { field:"epm_app", alias:"EPM App", editable:true },
+      { field:"epm_granted", alias:"EPM Granted", editable:true },
+      { field:"ml_permit_app", alias:"ML Permit App", editable:true },
+      { field:"ml_granted", alias:"ML Granted", editable:true },
+      { field:"appln_int", alias:"Exploration Permit", editable:true }
+    ]},
+    { title:"Environment & Planning", items:[
+      { field:"contam_lan", alias:"Contaminated Land", editable:true },
+      { field:"stk_route", alias:"Stock Route", editable:true },
+      { field:"plan_schem", alias:"State Plan Policy", editable:true },
+      { field:"regional_plan", alias:"Regional Plan", editable:true, textarea:true },
+      { field:"flooding", alias:"Flood Hazard", editable:true },
+      { field:"bushfire", alias:"Bushfire Hazard", editable:true },
+      { field:"coastal_mgmt", alias:"Coastal Management", editable:true },
+      { field:"veg_mgmt_cat", alias:"Veg Mgmt Categories", editable:true },
+      { field:"veg_mgmt_reg_eco", alias:"Veg Mgmt Reg Ecos", editable:true }
+    ]},
+    { title:"Social & Cultural", items:[
+      { field:"cul_mgmt_plan", alias:"Heritage Mgmt Plan", editable:true, textarea:true },
+      { field:"cul_studyarea_bdy", alias:"Study Area Bdy", editable:true, textarea:true },
+      { field:"cul_party", alias:"Party", editable:true }
+    ]}
+  ];
+  const FIELD_MAP = SECTIONS.flatMap(s=>s.items);
+
+  function renderSections(){
+    const host = $("sections"); host.innerHTML = "";
+    for(const sec of SECTIONS){
+      const secDiv = document.createElement("section");
+      secDiv.className="section";
+      secDiv.innerHTML = `<header><h3>${sec.title}</h3></header><div class="body"></div>`;
+      const body = secDiv.querySelector(".body");
+      for(const it of sec.items){
+        const ctrl = it.textarea ? `<textarea id="${it.field}" ${it.editable?"":"disabled"}></textarea>`
+                                 : `<input id="${it.field}" ${it.editable?"":"disabled"} />`;
+        body.insertAdjacentHTML("beforeend",
+          `<div class="row"><label for="${it.field}">${it.alias}</label><div class="field">${ctrl}</div></div>`);
+      }
+      host.appendChild(secDiv);
+    }
+  }
+});
+</script>
+</body>
+</html>
