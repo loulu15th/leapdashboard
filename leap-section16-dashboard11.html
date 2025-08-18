@@ -1,353 +1,229 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>LEAP Section 16 Dashboard</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="stylesheet" href="https://js.arcgis.com/4.29/esri/themes/light/main.css" />
+  <meta charset="utf-8"/>
+  <title>LEAP Section 16 – Dashboard V2 (UAT)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <link rel="stylesheet" href="https://js.arcgis.com/4.29/esri/themes/light/main.css"/>
   <style>
-    html, body, #container { margin:0; padding:0; height:100%; }
-    #container { display:flex; font-family:Arial,sans-serif; }
-    #mapPane { position:relative; flex:1; min-width:360px; }
-    #viewDiv { position:absolute; inset:0; }
-    #svcWarn{
-      position:absolute; top:10px; left:10px; z-index:5;
-      background:#fff4d6; border:1px solid #f0c36d; border-radius:6px;
-      padding:6px 10px; font-size:.9em; display:none;
-    }
-    #infoPane { width:380px; background:#f5f5f5; overflow:auto; padding:20px; box-sizing:border-box; border-left:1px solid #e8e8e8; }
-    #infoPane h2 { margin:0 0 8px; color:#003087; }
-    #infoPane h3 { margin:16px 0 8px; font-size:1.1em; font-weight:normal; color:#003087; }
-    .assessment-table { width:100%; border-collapse:collapse; }
-    .assessment-table th { width:34%; text-align:left; padding:4px 8px; vertical-align:top; font-weight:normal; }
-    .assessment-table td { padding:4px 8px; vertical-align:top; }
-    .assessment-table input, .assessment-table textarea {
-      width:100%; box-sizing:border-box; padding:6px 8px; font-size:.95em;
-      border:1px solid #ccc; border-radius:4px; background:#fff;
-    }
-    .assessment-table textarea { resize:vertical; min-height:60px; }
-    .btn { background:#003087; color:#fff; border:none; padding:6px 12px; border-radius:4px; cursor:pointer; }
-    .btn:disabled { background:#aaa; }
+    html,body,#view{height:100%;margin:0}
+    .panel{position:absolute;top:10px;right:10px;width:420px;max-height:90%;overflow:auto;background:#fff;
+      border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.2);padding:12px}
+    .row{margin:8px 0}
+    label{display:block;font-weight:600;margin-bottom:4px}
+    input,textarea,select{width:100%;padding:8px;border:1px solid #ddd;border-radius:6px}
+    button{padding:8px 12px;border:0;border-radius:8px;cursor:pointer}
+    .primary{background:#2563eb;color:#fff}
+    .danger{background:#b91c1c;color:#fff}
+    .muted{color:#666}
+    .list-item{border:1px solid #eee;border-radius:8px;padding:8px;margin:6px 0}
+    .pill{display:inline-block;padding:2px 8px;font-size:12px;background:#eef;border-radius:999px;margin-left:6px}
   </style>
+  <script src="https://js.arcgis.com/4.29/"></script>
 </head>
 <body>
-  <div id="container">
-    <div id="mapPane">
-      <div id="svcWarn">Service not reachable yet. Map is usable; parcel data will appear when it loads.</div>
-      <div id="viewDiv"></div>
-    </div>
+<div id="view"></div>
 
-    <div id="infoPane">
-      <h2>Section 16 Assessment</h2>
-      <p id="startHint">Select a parcel on the map or search a Lot/Plan to begin.</p>
+<div class="panel">
+  <h3 style="margin:4px 0 8px">LEAP – Section 16 Notes</h3>
+  <div class="muted">Select a parcel to view and edit related notes.</div>
 
-      <div id="formFields" style="display:none;">
-        <!-- Parcel Details -->
-        <h3>Parcel Details</h3>
-        <table class="assessment-table">
-          <tr><th>Lot/Plan</th>                 <td><input id="lotplan"     disabled /></td></tr>
-          <tr><th>Lot</th>                      <td><input id="lot"         disabled /></td></tr>
-          <tr><th>Plan</th>                     <td><input id="plan"        disabled /></td></tr>
-          <tr><th>Survey Indicator</th>         <td><input id="surv_ind"    disabled /></td></tr>
-          <tr><th>Title Reference</th>          <td><input id="title_ref"             /></td></tr>
-          <tr><th>Property Address</th>         <td><input id="prop_addr"             /></td></tr>
-          <tr><th>Area (ha)</th>                <td><input id="lot_area_c"            /></td></tr>
-          <tr><th>Tenure</th>                   <td><input id="tenure"       disabled /></td></tr>
-          <tr><th>Registered Owner/Trustee</th> <td><input id="reg_owner"            /></td></tr>
-          <tr><th>LGA</th>                      <td><input id="shire_name"   disabled /></td></tr>
-        </table>
-
-        <!-- Administrative Attributes -->
-        <h3>Administrative Attributes</h3>
-        <table class="assessment-table">
-          <tr><th>Access (Legal)</th>       <td><input id="access_l"    /></td></tr>
-          <tr><th>Access (Practical)</th>   <td><input id="access_p"    /></td></tr>
-          <tr><th>Registered Interests</th> <td><input id="ciram_chk"   /></td></tr>
-          <tr><th>Current Valuation</th>    <td><input id="qvas_val"    /></td></tr>
-          <tr><th>eLVAS Cases</th>          <td><input id="elvas_ref"   /></td></tr>
-        </table>
-
-        <!-- Site History & Background -->
-        <h3>Site History & Background</h3>
-        <table class="assessment-table">
-          <tr><th>Native Title Status</th>      <td><input id="nt_status"      /></td></tr>
-          <tr><th>Indigenous Cult Heritage</th> <td><input id="ind_cul_he"     /></td></tr>
-          <tr><th>Qld Cult Heritage</th>        <td><input id="qld_cul_he"     /></td></tr>
-          <tr><th>Historical Tenure</th>        <td><input id="ten_hist"       /></td></tr>
-        </table>
-
-        <!-- Physical, Biological & Economic -->
-        <h3>Physical, Biological & Economic</h3>
-        <table class="assessment-table">
-          <tr><th>Parcel Type</th>    <td><input id="parcel_typ"         /></td></tr>
-          <tr><th>Cover Type</th>     <td><input id="cover_typ"          /></td></tr>
-          <tr><th>Plan Constraints</th><td><textarea id="plan_const"></textarea></td></tr>
-          <tr><th>MAUT Use</th>       <td><input id="mau"                /></td></tr>
-          <tr><th>Past Material</th>  <td><input id="p_mat"              /></td></tr>
-          <tr><th>Mining Interest</th><td><input id="mine_int"           /></td></tr>
-          <tr><th>EPM App/Grant</th>  <td>
-            <input id="epm_app" /><br/>
-            <input id="epm_granted" placeholder="Granted" />
-          </td></tr>
-          <tr><th>ML Permit App/Grant</th><td>
-            <input id="ml_permit_app" /><br/>
-            <input id="ml_granted" placeholder="Granted" />
-          </td></tr>
-          <tr><th>Exploration Permit</th> <td><input id="appln_int"      /></td></tr>
-        </table>
-
-        <!-- Environment & Planning -->
-        <h3>Environment & Planning</h3>
-        <table class="assessment-table">
-          <tr><th>Contaminated Land</th>  <td><input id="contam_lan"     /></td></tr>
-          <tr><th>Stock Route</th>        <td><input id="stk_route"      /></td></tr>
-          <tr><th>State Plan Policy</th>  <td><input id="plan_schem"     /></td></tr>
-          <tr><th>Regional Plan</th>      <td><textarea id="regional_plan"></textarea></td></tr>
-          <tr><th>Flood Hazard</th>       <td><input id="flooding"       /></td></tr>
-          <tr><th>Bushfire Hazard</th>    <td><input id="bushfire"       /></td></tr>
-          <tr><th>Coastal Management</th> <td><input id="coastal_mgmt"   /></td></tr>
-          <tr><th>Veg Mgmt Categories</th><td><input id="veg_mgmt_cat"   /></td></tr>
-          <tr><th>Veg Mgmt Reg Ecos</th>  <td><input id="veg_mgmt_reg_eco"/></td></tr>
-        </table>
-
-        <!-- Social & Cultural -->
-        <h3>Social & Cultural Attributes</h3>
-        <table class="assessment-table">
-          <tr><th>Heritage Mgmt Plan</th><td><textarea id="cul_mgmt_plan"></textarea></td></tr>
-          <tr><th>Study Area Bdy</th>    <td><textarea id="cul_studyarea_bdy"></textarea></td></tr>
-          <tr><th>Party</th>             <td><input id="cul_party" /></td></tr>
-        </table>
-
-        <div style="margin-top:12px; text-align:right;">
-          <button id="saveBtn" class="btn" disabled>Save</button>
-          <button id="reportBtn" class="btn" disabled>Report</button>
-        </div>
-      </div>
-    </div>
+  <div class="row">
+    <label>Search Lot/Plan</label>
+    <input id="searchBox" placeholder="e.g. 45SP164230"/>
   </div>
 
-  <script src="https://js.arcgis.com/4.29/"></script>
-  <script>
-  window.addEventListener("DOMContentLoaded", function(){
+  <div id="parcelInfo" class="row muted">No parcel selected.</div>
 
-    require([
-      "esri/config",
-      "esri/Map",
-      "esri/views/MapView",
-      "esri/layers/FeatureLayer",
-      "esri/layers/GraphicsLayer",
-      "esri/layers/WebTileLayer",
-      "esri/Basemap",
-      "esri/Graphic",
-      "esri/widgets/Zoom",
-      "esri/widgets/Search"
-    ], function(esriConfig, Map, MapView, FeatureLayer, GraphicsLayer, WebTileLayer, Basemap, Graphic, Zoom, Search) {
+  <div class="row">
+    <h4 style="margin:8px 0">Related Notes <span id="noteCount" class="pill">0</span></h4>
+    <div id="noteList"></div>
+  </div>
 
-      // ------------ CONFIG ------------
-      esriConfig.request.trustedServers.push("uat-qportal.information.qld.gov.au");
+  <hr/>
 
-      // 👉 point at the parcels sublayer you want:
-      const PARCEL_URL = "https://uat-qportal.information.qld.gov.au/arcgis/rest/services/LEAP_ClaimParcels_rbt/FeatureServer/0";
-      // const PARCEL_URL = "https://uat-qportal.information.qld.gov.au/arcgis/rest/services/sirrte_idi_LEAP_ClaimParcels_vegtest/FeatureServer/1";
+  <div class="row"><h4 style="margin:8px 0">Add / Edit Note</h4></div>
+  <div class="row"><label>Lot &amp; Plan (auto or manual)</label><input id="f_lotplan" maxlength="100"/></div>
+  <div class="row"><label>Prepared by</label><input id="f_preparedby" maxlength="100"/></div>
+  <div class="row"><label>Note Date</label><input id="f_date" type="date"/></div>
+  <div class="row"><label>Regional Planning</label><textarea id="f_regional_plan" rows="2" maxlength="2000"></textarea></div>
+  <div class="row"><label>Recommendations</label><textarea id="f_recommendations" rows="3" maxlength="4000"></textarea></div>
 
-      // form field -> service field name mapping (when they differ)
-      const FIELD_MAP = {
-        lot_area_c: "lot_area" // show ha in UI, store m² in service
-        // add more here if any field ids differ from service names
-      };
+  <div class="row">
+    <button id="btnSave" class="primary">Save Note</button>
+    <button id="btnDelete" class="danger" style="display:none">Delete Selected</button>
+    <span id="msg" class="muted" style="margin-left:8px"></span>
+  </div>
+</div>
 
-      // ------------ DOM ------------
-      const svcWarn   = document.getElementById("svcWarn");
-      const startHint = document.getElementById("startHint");
-      const form      = document.getElementById("formFields");
-      const saveBtn   = document.getElementById("saveBtn");
-      const reportBtn = document.getElementById("reportBtn");
+<script>
+require([
+  "esri/Map","esri/views/MapView","esri/layers/FeatureLayer","esri/core/reactiveUtils",
+  "esri/rest/support/Query","esri/Graphic"
+], function(Map, MapView, FeatureLayer, reactiveUtils, Query, Graphic) {
 
-      // ------------ Basemap with OSM fallback ------------
-      function offlineBasemap(){
-        const osm = new WebTileLayer({
-          urlTemplate: "https://tile.openstreetmap.org/{level}/{col}/{row}.png",
-          copyright: "© OpenStreetMap contributors"
-        });
-        return new Basemap({ baseLayers: [osm], id:"osm-direct", title:"OpenStreetMap" });
+  // ======= CONFIG =======
+  const CONFIG = {
+    portalUrl: "https://YOUR_PORTAL_URL/portal",
+    parcelsUrl: "https://YOUR_SERVER_URL/arcgis/rest/services/IDI/LEAP_ClaimParcels_new/FeatureServer/0",
+    notesUrl:   "https://YOUR_SERVER_URL/arcgis/rest/services/IDI/LEAP_ClaimParcels_new/FeatureServer/1",
+    relationshipId: 0,                 // from REST relationships (parcels↔notes)
+    parentKey: "globalid",             // field name in service (lowercase)
+    childFK: "parcelguid",             // FK on notes table
+    lotplanFieldParent: "lotplan",     // copy into s16_lotplan if empty
+    fieldsNotes: [
+      "objectid","parcelguid","s16_lotplan","s16_preparedby","s16_note_date",
+      "s16_regional_plan","s16_recommendations","created_user","created_date","last_edited_user","last_edited_date"
+    ]
+  };
+
+  // ======= LAYERS =======
+  const parcels = new FeatureLayer({
+    url: CONFIG.parcelsUrl,
+    outFields: ["objectid", CONFIG.parentKey, "lotplan", "shire_name", "locality"]
+  });
+
+  const notes = new FeatureLayer({
+    url: CONFIG.notesUrl,
+    outFields: CONFIG.fieldsNotes
+  });
+
+  const map = new Map({ basemap: "streets-vector", layers: [parcels] });
+  const view = new MapView({ container: "view", map, center: [153.03,-27.47], zoom: 9 });
+
+  let selectedParcel = null;     // Graphic
+  let selectedNoteOID = null;    // number
+
+  // ======= UI HELPERS =======
+  const el = (id) => document.getElementById(id);
+  const msg = (t) => (el("msg").textContent = t ?? "");
+  const fmtDate = (d) => d ? new Date(d).toISOString().slice(0,10) : "";
+
+  function setParcelInfo(g) {
+    if (!g) { el("parcelInfo").innerHTML = "No parcel selected."; return; }
+    const lp = g.attributes.lotplan ?? "";
+    el("parcelInfo").innerHTML =
+      `<b>Lot/Plan:</b> ${lp || "(blank)"} &nbsp; <b>Shire:</b> ${g.attributes.shire_name ?? ""} &nbsp; <b>Locality:</b> ${g.attributes.locality ?? ""}`;
+    // prefill form lotplan if empty
+    if (!el("f_lotplan").value && lp) el("f_lotplan").value = lp;
+  }
+
+  // ======= SELECTION =======
+  view.when().then(() => {
+    view.on("click", async (e) => {
+      const hit = await view.hitTest(e);
+      const feat = hit.results?.find(r => r.graphic?.layer === parcels)?.graphic;
+      if (feat) {
+        selectedParcel = feat;
+        view.graphics.removeAll();
+        view.graphics.add(new Graphic({ geometry: feat.geometry, symbol: { type: "simple-fill", style: "none",
+          outline: { type:"simple-line", width: 2 }}}));
+        setParcelInfo(feat);
+        loadRelatedNotes();
       }
-      const map  = new Map({ basemap: offlineBasemap() });
-      const view = new MapView({ container: "viewDiv", map, zoom: 6, center: [145,-24] });
-
-      try { map.basemap = "satellite"; } catch(e) {}
-      view.on("layerview-create-error", (evt)=>{
-        const isBase = evt?.layer?.type === "tile" || (evt?.layer?.id || "").includes("base");
-        if (isBase) { console.warn("Basemap failed; reverting to OSM.", evt?.error); map.basemap = offlineBasemap(); }
-      });
-
-      view.when(()=>{ view.ui.remove("zoom"); view.ui.add(new Zoom({view}), "top-left"); });
-
-      const searchWidget = new Search({ view, includeDefaultSources:true, allPlaceholder:"Search address or Lot/Plan" });
-      view.ui.add(searchWidget, "top-right");
-
-      const highlightLayer = new GraphicsLayer(); map.add(highlightLayer);
-
-      // ------------ STATE ------------
-      let claimLayer = null;
-      let selectedFeature = null;
-      let serviceFieldSet = new Set();
-
-      // ------------ INIT ------------
-      (async function init(){
-        claimLayer = await safeLoadFL(PARCEL_URL);
-        if (!claimLayer){
-          if (svcWarn){
-            svcWarn.textContent = "Parcel service is unreachable (network/login). Map is usable; parcel data will appear once it connects.";
-            svcWarn.style.display = "block";
-          }
-          return;
-        }
-
-        // draw parcels (visible)
-        claimLayer.minScale = 0;
-        claimLayer.maxScale = 0;
-        claimLayer.opacity  = 0.6;
-        claimLayer.renderer = {
-          type: "simple-fill",
-          color: [255,255,0,0.15],
-          outline: { color:[0,255,255,1], width:1.5 }
-        };
-        map.add(claimLayer);
-
-        // collect service fields for safe save()
-        serviceFieldSet = new Set(claimLayer.fields.map(f=>f.name.toLowerCase()));
-
-        // warn about any expected fields missing from service
-        const EXPECTED = [
-          "title_ref","prop_addr","lot_area","reg_owner","access_l","access_p","ciram_chk",
-          "qvas_val","elvas_ref","nt_status","ind_cul_he","qld_cul_he","ten_hist","parcel_typ",
-          "cover_typ","plan_const","mau","p_mat","mine_int","epm_app","epm_granted",
-          "ml_permit_app","ml_granted","appln_int","contam_lan","stk_route","plan_schem",
-          "regional_plan","flooding","bushfire","coastal_mgmt","veg_mgmt_cat","veg_mgmt_reg_eco",
-          "cul_mgmt_plan","cul_studyarea_bdy","cul_party","lotplan","lot","plan","surv_ind","tenure","shire_name"
-        ];
-        const missing = EXPECTED.filter(n=>!serviceFieldSet.has(n.toLowerCase()));
-        if (missing.length && svcWarn){
-          svcWarn.textContent = "Missing fields in service: " + missing.join(", ");
-          svcWarn.style.display = "block";
-          console.warn("Missing fields:", missing);
-        }
-
-        try { await view.goTo(claimLayer.fullExtent); } catch(e){}
-
-        // add lot/plan search
-        try {
-          searchWidget.sources.add({
-            layer: claimLayer, searchFields:["lotplan"], displayField:"lotplan",
-            outFields:["*"], name:"Claim Parcels", placeholder:"e.g. 45SP164230"
-          });
-        } catch(e){ console.warn(e); }
-
-        // click select
-        view.on("click", (evt)=>{
-          view.hitTest(evt).then(async (r)=>{
-            const hit = r.results.find(x=> x.graphic?.layer===claimLayer);
-            if (hit){
-              const f = await ensureGeometry(claimLayer, hit.graphic);
-              showForm(f); highlightAndZoom(f);
-            } else clearSelection();
-          });
-        });
-
-        // search select
-        searchWidget.on("select-result", async (evt)=>{
-          let f = evt.result.feature;
-          f = await ensureGeometry(claimLayer, f);
-          if (f){ showForm(f); highlightAndZoom(f); }
-        });
-
-      })();
-
-      // ------------ helpers ------------
-      async function safeLoadFL(url){
-        const fl = new FeatureLayer({ url, outFields:["*"] });
-        try { await fl.load(); return fl; }
-        catch(e){ console.warn("Failed to load:", url, e); return null; }
-      }
-
-      async function ensureGeometry(layer, feature){
-        if (feature && feature.geometry) return feature;
-        const oid = feature?.attributes?.[layer.objectIdField];
-        if (!oid) return feature;
-        const res = await layer.queryFeatures({ objectIds:[oid], returnGeometry:true, outFields:["*"] });
-        return res.features[0] || feature;
-      }
-
-      function clearSelection(){
-        highlightLayer.removeAll();
-        selectedFeature = null;
-        startHint.style.display = "block";
-        form.style.display      = "none";
-        saveBtn.disabled = reportBtn.disabled = true;
-      }
-
-      function showForm(feature){
-        selectedFeature = feature;
-        const a = feature.attributes || {};
-        // fill straightforward matches by id==field
-        document.querySelectorAll("#formFields input, #formFields textarea").forEach(el=>{
-          const id = el.id;
-          let serviceField = id;
-          if (!serviceFieldSet.has(serviceField.toLowerCase()) && FIELD_MAP[id]) {
-            serviceField = FIELD_MAP[id];
-          }
-          let v = a[serviceField];
-          if (id === "lot_area_c") {            // show ha
-            const m2 = a[FIELD_MAP.lot_area_c];
-            v = (m2!=null && !isNaN(m2)) ? (m2/10000).toFixed(3) : "";
-          }
-          el.value = (v==null ? "" : v);
-        });
-
-        startHint.style.display = "none";
-        form.style.display      = "block";
-        saveBtn.disabled = reportBtn.disabled = false;
-      }
-
-      function highlightAndZoom(feature){
-        highlightLayer.removeAll();
-        highlightLayer.add(new Graphic({
-          geometry: feature.geometry,
-          symbol: { type:"simple-fill", color:[0,200,0,0.15], outline:{ color:[255,255,0,1], width:3 } }
-        }));
-        try {
-          const padded = feature.geometry.extent.expand(1.2);
-          view.goTo(padded);
-        } catch(e){}
-      }
-
-      // save edits – only write fields that exist on the service
-      saveBtn.onclick = ()=>{
-        if (!selectedFeature || !claimLayer) return;
-        const attrs = { ...selectedFeature.attributes };
-        document.querySelectorAll("#formFields input, #formFields textarea").forEach(el=>{
-          const id = el.id;
-          let fieldName = id;
-          if (!serviceFieldSet.has(fieldName.toLowerCase()) && FIELD_MAP[id]) fieldName = FIELD_MAP[id];
-
-          if (!serviceFieldSet.has(fieldName.toLowerCase())) return; // skip unknowns
-
-          let val = el.value;
-          if (id === "lot_area_c") {               // convert ha -> m² for storage
-            val = (val==="" ? null : Number(val)*10000);
-          }
-          attrs[fieldName] = val;
-        });
-
-        claimLayer.applyEdits({ updateFeatures:[{ attributes: attrs }] })
-          .then(()=> alert("Saved"))
-          .catch(e => alert("Save error: " + e.message));
-      };
-
-      reportBtn.onclick = ()=> alert("🚧 Generate PDF here");
-
     });
   });
-  </script>
+
+  // ======= SEARCH (lotplan contains) =======
+  el("searchBox").addEventListener("keydown", async (ev) => {
+    if (ev.key !== "Enter") return;
+    const q = new Query({ where: `lotplan LIKE '%${el("searchBox").value.replace(/'/g,"''")}%'`,
+                          outFields: parcels.outFields, returnGeometry: true });
+    const { features } = await parcels.queryFeatures(q);
+    if (features.length) {
+      selectedParcel = features[0];
+      await view.goTo({ target: selectedParcel, zoom: 16 });
+      setParcelInfo(selectedParcel);
+      loadRelatedNotes();
+    } else { msg("No parcel match."); }
+  });
+
+  // ======= LOAD RELATED NOTES =======
+  async function loadRelatedNotes() {
+    msg("Loading…");
+    selectedNoteOID = null;
+    const rel = await parcels.queryRelatedFeatures({
+      relationshipId: CONFIG.relationshipId,
+      objectIds: [selectedParcel.attributes.objectid],
+      outFields: CONFIG.fieldsNotes
+    });
+    const rows = rel[selectedParcel.attributes.objectid]?.features ?? [];
+    el("noteCount").textContent = rows.length;
+    const list = rows.map(f => {
+      const o = f.attributes;
+      return `<div class="list-item" data-oid="${o.objectid}">
+        <div><b>${o.s16_preparedby || "(no author)"} — ${fmtDate(o.s16_note_date)}</b></div>
+        <div class="muted">${(o.s16_regional_plan || "").substring(0,160)}</div>
+        <div class="muted"><i>LotPlan:</i> ${o.s16_lotplan || ""}</div>
+      </div>`;
+    }).join("") || `<div class="muted">No notes yet.</div>`;
+    el("noteList").innerHTML = list;
+    msg("");
+
+    // click-to-edit
+    document.querySelectorAll("#noteList .list-item").forEach(div => {
+      div.onclick = async () => {
+        selectedNoteOID = +div.getAttribute("data-oid");
+        const { features } = await notes.queryFeatures({ where: `objectid=${selectedNoteOID}`, outFields: CONFIG.fieldsNotes });
+        if (features.length) {
+          const a = features[0].attributes;
+          el("f_lotplan").value = a.s16_lotplan || "";
+          el("f_preparedby").value = a.s16_preparedby || "";
+          el("f_date").value = fmtDate(a.s16_note_date);
+          el("f_regional_plan").value = a.s16_regional_plan || "";
+          el("f_recommendations").value = a.s16_recommendations || "";
+          el("btnDelete").style.display = "inline-block";
+        }
+      };
+    });
+  }
+
+  // ======= SAVE (insert or update) =======
+  el("btnSave").onclick = async () => {
+    if (!selectedParcel) { msg("Select a parcel first."); return; }
+    msg("Saving…");
+    const parentGlobalID = selectedParcel.attributes[CONFIG.parentKey]; // 'globalid'
+    const attrs = {
+      s16_lotplan: el("f_lotplan").value || selectedParcel.attributes[CONFIG.lotplanFieldParent] || null,
+      s16_preparedby: el("f_preparedby").value || null,
+      s16_note_date: el("f_date").value ? new Date(el("f_date").value) : null,
+      s16_regional_plan: el("f_regional_plan").value || null,
+      s16_recommendations: el("f_recommendations").value || null,
+      [CONFIG.childFK]: parentGlobalID // parcelguid = parent.globalid
+    };
+
+    const edit = selectedNoteOID
+      ? { updateFeatures: [ { attributes: { objectid: selectedNoteOID, ...attrs } } ] }
+      : { addFeatures:    [ { attributes: attrs } ] };
+
+    const res = await notes.applyEdits(edit);
+    const ok = (selectedNoteOID ? res.updateFeatureResults : res.addFeatureResults)[0]?.success;
+    if (ok) {
+      msg("Saved.");
+      selectedNoteOID = null;
+      el("btnDelete").style.display = "none";
+      loadRelatedNotes();
+    } else {
+      msg("Save failed.");
+    }
+  };
+
+  // ======= DELETE =======
+  el("btnDelete").onclick = async () => {
+    if (!selectedNoteOID) return;
+    msg("Deleting…");
+    const res = await notes.applyEdits({ deleteFeatures: [{ objectId: selectedNoteOID }] });
+    if (res.deleteFeatureResults[0]?.success) {
+      msg("Deleted.");
+      selectedNoteOID = null;
+      el("btnDelete").style.display = "none";
+      loadRelatedNotes();
+    } else {
+      msg("Delete failed.");
+    }
+  };
+
+});
+</script>
 </body>
 </html>
