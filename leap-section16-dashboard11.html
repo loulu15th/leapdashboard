@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <title>LEAP Section 16 – Dashboard V2 (UAT)</title>
+  <title>LEAP – Section 16 Dashboard (UAT)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <link rel="stylesheet" href="https://js.arcgis.com/4.29/esri/themes/light/main.css"/>
   <style>
@@ -11,13 +11,11 @@
       border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.2);padding:12px}
     .row{margin:8px 0}
     label{display:block;font-weight:600;margin-bottom:4px}
-    input,textarea,select{width:100%;padding:8px;border:1px solid #ddd;border-radius:6px}
+    input,textarea{width:100%;padding:8px;border:1px solid #ddd;border-radius:6px}
     button{padding:8px 12px;border:0;border-radius:8px;cursor:pointer}
     .primary{background:#2563eb;color:#fff}
-    .danger{background:#b91c1c;color:#fff}
     .muted{color:#666}
     .list-item{border:1px solid #eee;border-radius:8px;padding:8px;margin:6px 0}
-    .pill{display:inline-block;padding:2px 8px;font-size:12px;background:#eef;border-radius:999px;margin-left:6px}
   </style>
   <script src="https://js.arcgis.com/4.29/"></script>
 </head>
@@ -26,17 +24,12 @@
 
 <div class="panel">
   <h3 style="margin:4px 0 8px">LEAP – Section 16 Notes</h3>
-  <div class="muted">Select a parcel to view and edit related notes.</div>
+  <div class="muted">Click a parcel (or use the map search) to view and edit related notes.</div>
+
+  <div id="parcelInfo" class="row muted" style="margin-top:8px">No parcel selected.</div>
 
   <div class="row">
-    <label>Search Lot/Plan</label>
-    <input id="searchBox" placeholder="e.g. 45SP164230"/>
-  </div>
-
-  <div id="parcelInfo" class="row muted">No parcel selected.</div>
-
-  <div class="row">
-    <h4 style="margin:8px 0">Related Notes <span id="noteCount" class="pill">0</span></h4>
+    <h4 style="margin:8px 0">Related Notes <span id="noteCount">0</span></h4>
     <div id="noteList"></div>
   </div>
 
@@ -51,36 +44,45 @@
 
   <div class="row">
     <button id="btnSave" class="primary">Save Note</button>
-    <button id="btnDelete" class="danger" style="display:none">Delete Selected</button>
+    <button id="btnDelete" style="display:none">Delete Selected</button>
     <span id="msg" class="muted" style="margin-left:8px"></span>
   </div>
 </div>
 
 <script>
 require([
-  "esri/Map","esri/views/MapView","esri/layers/FeatureLayer","esri/core/reactiveUtils",
-  "esri/rest/support/Query","esri/Graphic"
-], function(Map, MapView, FeatureLayer, reactiveUtils, Query, Graphic) {
+  "esri/config",
+  "esri/Map",
+  "esri/views/MapView",
+  "esri/layers/FeatureLayer",
+  "esri/widgets/Search",
+  "esri/Graphic",
+  "esri/rest/support/Query"
+], function(esriConfig, Map, MapView, FeatureLayer, Search, Graphic, Query) {
 
   // ======= CONFIG =======
   const CONFIG = {
-    portalUrl: "https://YOUR_PORTAL_URL/portal",
-    parcelsUrl: "https://YOUR_SERVER_URL/arcgis/rest/services/IDI/LEAP_ClaimParcels_new/FeatureServer/0",
-    notesUrl:   "https://YOUR_SERVER_URL/arcgis/rest/services/IDI/LEAP_ClaimParcels_new/FeatureServer/1",
-    relationshipId: 0,                 // from REST relationships (parcels↔notes)
-    parentKey: "globalid",             // field name in service (lowercase)
-    childFK: "parcelguid",             // FK on notes table
-    lotplanFieldParent: "lotplan",     // copy into s16_lotplan if empty
+    // If you use Enterprise portal and are already logged-in in the same domain,
+    // you usually DON'T set an API key; just ensure CORS/trusted server is fine.
+    parcelsUrl: "https://YOUR_SERVER/arcgis/rest/services/IDI/LEAP_ClaimParcels_new/FeatureServer/0",
+    notesUrl:   "https://YOUR_SERVER/arcgis/rest/services/IDI/LEAP_ClaimParcels_new/FeatureServer/1",
+    relationshipId: 0,
+    parentKey: "globalid",      // as shown in REST
+    childFK: "parcelguid",      // FK in notes
     fieldsNotes: [
       "objectid","parcelguid","s16_lotplan","s16_preparedby","s16_note_date",
       "s16_regional_plan","s16_recommendations","created_user","created_date","last_edited_user","last_edited_date"
     ]
   };
 
+  // Helpful if your server is on a different host/subdomain:
+  // esriConfig.request.trustedServers.push("https://YOUR_SERVER");
+
   // ======= LAYERS =======
   const parcels = new FeatureLayer({
     url: CONFIG.parcelsUrl,
-    outFields: ["objectid", CONFIG.parentKey, "lotplan", "shire_name", "locality"]
+    outFields: ["objectid", CONFIG.parentKey, "lotplan", "shire_name", "locality"],
+    popupEnabled: false
   });
 
   const notes = new FeatureLayer({
@@ -88,141 +90,186 @@ require([
     outFields: CONFIG.fieldsNotes
   });
 
-  const map = new Map({ basemap: "streets-vector", layers: [parcels] });
-  const view = new MapView({ container: "view", map, center: [153.03,-27.47], zoom: 9 });
+  const map = new Map({
+    // satellite imagery with labels
+    basemap: "hybrid",
+    layers: [parcels]
+  });
 
+  const view = new MapView({
+    container: "view",
+    map,
+    center: [153.03, -27.47],
+    zoom: 10,
+    constraints: { snapToZoom: false }
+  });
+
+  // ======= SEARCH (top-right) =======
+  const search = new Search({
+    view,
+    includeDefaultSources: false,
+    sources: [{
+      layer: parcels,
+      name: "Search by Lot/Plan",
+      searchFields: ["lotplan"],
+      suggestionTemplate: "{lotplan}",
+      exactMatch: false,
+      outFields: ["*"],
+      placeholder: "e.g. 45SP164230",
+      maxSuggestions: 8,
+      autoNavigate: true,
+      resultGraphicEnabled: false
+    }]
+  });
+  view.ui.add(search, "top-right");
+
+  // ======= STATE =======
   let selectedParcel = null;     // Graphic
   let selectedNoteOID = null;    // number
 
-  // ======= UI HELPERS =======
-  const el = (id) => document.getElementById(id);
-  const msg = (t) => (el("msg").textContent = t ?? "");
-  const fmtDate = (d) => d ? new Date(d).toISOString().slice(0,10) : "";
+  const el = id => document.getElementById(id);
+  const msg = t => (el("msg").textContent = t || "");
+
+  const fmtDate = d => d ? new Date(d).toISOString().slice(0,10) : "";
 
   function setParcelInfo(g) {
-    if (!g) { el("parcelInfo").innerHTML = "No parcel selected."; return; }
-    const lp = g.attributes.lotplan ?? "";
+    if (!g) { el("parcelInfo").textContent = "No parcel selected."; return; }
+    const a = g.attributes;
     el("parcelInfo").innerHTML =
-      `<b>Lot/Plan:</b> ${lp || "(blank)"} &nbsp; <b>Shire:</b> ${g.attributes.shire_name ?? ""} &nbsp; <b>Locality:</b> ${g.attributes.locality ?? ""}`;
-    // prefill form lotplan if empty
-    if (!el("f_lotplan").value && lp) el("f_lotplan").value = lp;
+      `<b>Lot/Plan:</b> ${a.lotplan ?? ""} &nbsp; <b>Shire:</b> ${a.shire_name ?? ""} &nbsp; <b>Locality:</b> ${a.locality ?? ""}`;
+    if (!el("f_lotplan").value && a.lotplan) el("f_lotplan").value = a.lotplan;
   }
 
-  // ======= SELECTION =======
-  view.when().then(() => {
-    view.on("click", async (e) => {
+  async function selectParcel(graphic) {
+    selectedParcel = graphic;
+    view.graphics.removeAll();
+    view.graphics.add(new Graphic({
+      geometry: graphic.geometry,
+      symbol: { type: "simple-fill", style: "none", outline: { type: "simple-line", width: 2 } }
+    }));
+    setParcelInfo(graphic);
+    await loadRelatedNotes();
+  }
+
+  // map click select
+  view.on("click", async (e) => {
+    try {
       const hit = await view.hitTest(e);
-      const feat = hit.results?.find(r => r.graphic?.layer === parcels)?.graphic;
-      if (feat) {
-        selectedParcel = feat;
-        view.graphics.removeAll();
-        view.graphics.add(new Graphic({ geometry: feat.geometry, symbol: { type: "simple-fill", style: "none",
-          outline: { type:"simple-line", width: 2 }}}));
-        setParcelInfo(feat);
-        loadRelatedNotes();
-      }
-    });
+      const g = hit.results?.find(r => r.graphic?.layer === parcels)?.graphic;
+      if (g) selectParcel(g);
+    } catch (err) { console.error("HitTest error", err); }
   });
 
-  // ======= SEARCH (lotplan contains) =======
-  el("searchBox").addEventListener("keydown", async (ev) => {
-    if (ev.key !== "Enter") return;
-    const q = new Query({ where: `lotplan LIKE '%${el("searchBox").value.replace(/'/g,"''")}%'`,
-                          outFields: parcels.outFields, returnGeometry: true });
-    const { features } = await parcels.queryFeatures(q);
-    if (features.length) {
-      selectedParcel = features[0];
-      await view.goTo({ target: selectedParcel, zoom: 16 });
-      setParcelInfo(selectedParcel);
-      loadRelatedNotes();
-    } else { msg("No parcel match."); }
+  // When a search result is chosen, select the parcel
+  search.on("select-result", (ev) => {
+    if (ev.result?.feature) selectParcel(ev.result.feature);
   });
 
-  // ======= LOAD RELATED NOTES =======
+  // ======= RELATED NOTES =======
   async function loadRelatedNotes() {
-    msg("Loading…");
-    selectedNoteOID = null;
-    const rel = await parcels.queryRelatedFeatures({
-      relationshipId: CONFIG.relationshipId,
-      objectIds: [selectedParcel.attributes.objectid],
-      outFields: CONFIG.fieldsNotes
-    });
-    const rows = rel[selectedParcel.attributes.objectid]?.features ?? [];
-    el("noteCount").textContent = rows.length;
-    const list = rows.map(f => {
-      const o = f.attributes;
-      return `<div class="list-item" data-oid="${o.objectid}">
-        <div><b>${o.s16_preparedby || "(no author)"} — ${fmtDate(o.s16_note_date)}</b></div>
-        <div class="muted">${(o.s16_regional_plan || "").substring(0,160)}</div>
-        <div class="muted"><i>LotPlan:</i> ${o.s16_lotplan || ""}</div>
-      </div>`;
-    }).join("") || `<div class="muted">No notes yet.</div>`;
-    el("noteList").innerHTML = list;
-    msg("");
+    try {
+      msg("Loading…");
+      selectedNoteOID = null;
+      const rel = await parcels.queryRelatedFeatures({
+        relationshipId: CONFIG.relationshipId,
+        objectIds: [selectedParcel.attributes.objectid],
+        outFields: CONFIG.fieldsNotes
+      });
+      const rows = rel[selectedParcel.attributes.objectid]?.features ?? [];
+      el("noteCount").textContent = rows.length;
+      const list = rows.map(f => {
+        const o = f.attributes;
+        return `<div class="list-item" data-oid="${o.objectid}">
+          <div><b>${o.s16_preparedby || "(no author)"} — ${fmtDate(o.s16_note_date)}</b></div>
+          <div class="muted">${(o.s16_regional_plan || "").substring(0,160)}</div>
+          <div class="muted"><i>LotPlan:</i> ${o.s16_lotplan || ""}</div>
+        </div>`;
+      }).join("") || `<div class="muted">No notes yet.</div>`;
+      el("noteList").innerHTML = list;
+      msg("");
 
-    // click-to-edit
-    document.querySelectorAll("#noteList .list-item").forEach(div => {
-      div.onclick = async () => {
-        selectedNoteOID = +div.getAttribute("data-oid");
-        const { features } = await notes.queryFeatures({ where: `objectid=${selectedNoteOID}`, outFields: CONFIG.fieldsNotes });
-        if (features.length) {
-          const a = features[0].attributes;
-          el("f_lotplan").value = a.s16_lotplan || "";
-          el("f_preparedby").value = a.s16_preparedby || "";
-          el("f_date").value = fmtDate(a.s16_note_date);
-          el("f_regional_plan").value = a.s16_regional_plan || "";
-          el("f_recommendations").value = a.s16_recommendations || "";
-          el("btnDelete").style.display = "inline-block";
-        }
-      };
-    });
+      // click-to-edit
+      document.querySelectorAll("#noteList .list-item").forEach(div => {
+        div.onclick = async () => {
+          selectedNoteOID = +div.getAttribute("data-oid");
+          const { features } = await notes.queryFeatures({ where: `objectid=${selectedNoteOID}`, outFields: CONFIG.fieldsNotes });
+          if (features.length) {
+            const a = features[0].attributes;
+            el("f_lotplan").value = a.s16_lotplan || "";
+            el("f_preparedby").value = a.s16_preparedby || "";
+            el("f_date").value = fmtDate(a.s16_note_date);
+            el("f_regional_plan").value = a.s16_regional_plan || "";
+            el("f_recommendations").value = a.s16_recommendations || "";
+            el("btnDelete").style.display = "inline-block";
+          }
+        };
+      });
+    } catch (err) {
+      console.error("queryRelatedFeatures error", err);
+      msg("Could not load notes.");
+    }
   }
 
-  // ======= SAVE (insert or update) =======
+  // ======= SAVE =======
   el("btnSave").onclick = async () => {
     if (!selectedParcel) { msg("Select a parcel first."); return; }
-    msg("Saving…");
-    const parentGlobalID = selectedParcel.attributes[CONFIG.parentKey]; // 'globalid'
-    const attrs = {
-      s16_lotplan: el("f_lotplan").value || selectedParcel.attributes[CONFIG.lotplanFieldParent] || null,
-      s16_preparedby: el("f_preparedby").value || null,
-      s16_note_date: el("f_date").value ? new Date(el("f_date").value) : null,
-      s16_regional_plan: el("f_regional_plan").value || null,
-      s16_recommendations: el("f_recommendations").value || null,
-      [CONFIG.childFK]: parentGlobalID // parcelguid = parent.globalid
-    };
+    try {
+      msg("Saving…");
+      const parentGlobalID = selectedParcel.attributes[CONFIG.parentKey]; // 'globalid'
+      const attrs = {
+        s16_lotplan: el("f_lotplan").value || selectedParcel.attributes.lotplan || null,
+        s16_preparedby: el("f_preparedby").value || null,
+        s16_note_date: el("f_date").value ? new Date(el("f_date").value) : null,
+        s16_regional_plan: el("f_regional_plan").value || null,
+        s16_recommendations: el("f_recommendations").value || null,
+        [CONFIG.childFK]: parentGlobalID
+      };
 
-    const edit = selectedNoteOID
-      ? { updateFeatures: [ { attributes: { objectid: selectedNoteOID, ...attrs } } ] }
-      : { addFeatures:    [ { attributes: attrs } ] };
+      const edit = selectedNoteOID
+        ? { updateFeatures: [ { attributes: { objectid: selectedNoteOID, ...attrs } } ] }
+        : { addFeatures:    [ { attributes: attrs } ] };
 
-    const res = await notes.applyEdits(edit);
-    const ok = (selectedNoteOID ? res.updateFeatureResults : res.addFeatureResults)[0]?.success;
-    if (ok) {
-      msg("Saved.");
-      selectedNoteOID = null;
-      el("btnDelete").style.display = "none";
-      loadRelatedNotes();
-    } else {
-      msg("Save failed.");
+      const res = await notes.applyEdits(edit);
+      const ok = (selectedNoteOID ? res.updateFeatureResults : res.addFeatureResults)[0]?.success;
+      if (ok) {
+        msg("Saved.");
+        selectedNoteOID = null;
+        el("btnDelete").style.display = "none";
+        loadRelatedNotes();
+      } else {
+        console.error("applyEdits response", res);
+        msg("Save failed.");
+      }
+    } catch (err) {
+      console.error("applyEdits error", err);
+      msg("Save error.");
     }
   };
 
   // ======= DELETE =======
   el("btnDelete").onclick = async () => {
     if (!selectedNoteOID) return;
-    msg("Deleting…");
-    const res = await notes.applyEdits({ deleteFeatures: [{ objectId: selectedNoteOID }] });
-    if (res.deleteFeatureResults[0]?.success) {
-      msg("Deleted.");
-      selectedNoteOID = null;
-      el("btnDelete").style.display = "none";
-      loadRelatedNotes();
-    } else {
-      msg("Delete failed.");
+    try {
+      msg("Deleting…");
+      const res = await notes.applyEdits({ deleteFeatures: [{ objectId: selectedNoteOID }] });
+      if (res.deleteFeatureResults[0]?.success) {
+        msg("Deleted.");
+        selectedNoteOID = null;
+        el("btnDelete").style.display = "none";
+        loadRelatedNotes();
+      } else {
+        console.error("delete response", res);
+        msg("Delete failed.");
+      }
+    } catch (err) {
+      console.error("delete error", err);
+      msg("Delete error.");
     }
   };
 
+  // Log layer loading issues
+  parcels.when().catch(e => console.error("Parcels layer failed to load:", e));
+  notes.when().catch(e => console.error("Notes table failed to load:", e));
 });
 </script>
 </body>
