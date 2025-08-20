@@ -6,10 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <link rel="stylesheet" href="https://js.arcgis.com/4.29/esri/themes/light/main.css" />
 <style>
-  :root{
-    --panelW: 42vw;
-    --panelWCollapsed: 380px;
-  }
+  :root{ --panelW: 42vw; --panelWCollapsed: 380px; }
   html,body{height:100%;margin:0}
   #wrap{display:flex;height:100%}
   #map{position:relative;flex:1}
@@ -23,6 +20,7 @@
     border-left:1px solid #e6e6e6;
     overflow-y:auto; overflow-x:hidden;
     transition:width .2s ease;
+    z-index:1;
   }
   #panel.open{ width:var(--panelW); }
   #panel .pad{ padding:16px 18px; }
@@ -32,21 +30,17 @@
   .section>header{display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:#fff;padding:8px 0;z-index:1}
   .section h3{margin:0;color:#003087;font-weight:600}
 
-  .row{ display:flex; gap:12px; margin:8px 0; }
-  .row label{
-    width:40%;
-    font-weight:600;
-    line-height:1.25;
-    white-space:normal;
-  }
+  .row{ display:flex; gap:12px; margin:8px 0; align-items:flex-start;}
+  .row label{ width:40%; font-weight:600; line-height:1.25; white-space:normal; }
   .row .field{ flex:1; }
 
-  input, textarea{
+  input, textarea, select{
     width:100%;
     padding:10px 12px;
     border:1px solid #d9d9d9;
     border-radius:10px;
     font-size:14px;
+    background:#fff;
   }
   textarea{ min-height:96px; resize:vertical; }
 
@@ -56,7 +50,7 @@
   .btn.secondary{background:#e9eefc;color:#003087}
   .pill{display:inline-block;border:1px solid #d0d7e2;border-radius:999px;padding:2px 8px;font-size:12px;background:#f5f8ff;margin-left:6px}
 
-  /* inline Notes list */
+  /* inline Notes cards */
   .noteList{display:grid;gap:10px;max-height:320px;overflow:auto;margin-top:8px}
   .noteCard{border:1px solid #e1e7f5;background:#fff;border-radius:10px;padding:8px;line-height:1.25}
   .noteCard .head{font-weight:600;margin-bottom:4px}
@@ -64,11 +58,12 @@
   .noteCard .lbl{color:#555}
   .link{color:#003087;cursor:pointer;text-decoration:underline}
 
-  /* vertical splitter between parcel panel and notes */
+  /* vertical splitter */
   #notesSplitter{
     width:6px; cursor:col-resize;
     background:linear-gradient(to right,#e6ecff 0,#d9e2ff 100%);
     display:none;
+    z-index:2; /* ensure it’s above the panel edge but not covering labels */
   }
   #notesSplitter:hover{ background:#cfe0ff; }
 
@@ -88,7 +83,7 @@
   .relForm .row{margin:6px 0}
   .danger{background:#b91c1c;color:#fff}
 
-  /* horizontal splitter inside notes (between list & editor) */
+  /* horizontal splitter inside notes */
   #notesHSplitter{
     height:6px; cursor:row-resize;
     background:linear-gradient(#e6ecff,#d9e2ff);
@@ -129,7 +124,7 @@
       <div id="sections" style="display:none"></div>
       <div class="actionbar">
         <button id="saveParcel" class="btn" disabled>Save Parcel</button>
-        <button id="btnToggleNotes" class="btn secondary" style="display:none">Notes</button>
+        <button id="btnToggleNotes" class="btn secondary" style="display:none" onclick="window.__openNotes?.()">Notes</button>
       </div>
     </div>
   </div>
@@ -149,7 +144,7 @@
 
     <div id="noteEditor" style="padding:10px;border-top:1px solid #e6e6e6;">
       <div style="font-weight:600;margin:4px 0 8px">Add / Edit Note</div>
-      <!-- dynamic fields will be inserted here -->
+      <!-- dynamic fields inserted here -->
       <div class="actionbar" style="justify-content:flex-start">
         <button id="btnNewNote" class="btn secondary" type="button">New</button>
         <button id="btnSaveNote" class="btn" type="button">Save Note</button>
@@ -197,7 +192,7 @@ require([
   let selectedNoteOID = null;
   let _notesFilterKeys = null;
   let N_resolved = false;
-  let search, clearBtn;
+  let search;
   let inlineNotesList;
 
   function findField(layer,names){const low=layer.fields.map(f=>f.name.toLowerCase());for(const n of names){const i=low.indexOf(n.toLowerCase());if(i>-1)return layer.fields[i].name;}return null;}
@@ -267,7 +262,7 @@ require([
       { field:"lotplan", alias:"Lot/Plan", editable:false },
       { field:"title_ref", alias:"Title Reference", editable:true },
       { field:"prop_addr", alias:"Property Address", editable:true },
-      { field:"lot_area", alias:"Area (ha)", editable:true },
+      { field:"lot_area", alias:"Area (ha)", editable:true },  /* beware of unit conversion */
       { field:"tenure", alias:"Tenure", editable:false },
       { field:"reg_owner", alias:"Registered Owner/Trustee", editable:true },
       { field:"shire_name", alias:"Local Government Area", editable:false },
@@ -300,14 +295,17 @@ require([
   ];
   const FIELD_MAP=SECTIONS.flatMap(s=>s.items).filter(i=>!i.custom);
 
-  /* ---------- Render sections ---------- */
+  /* ---------- Render sections (with domain-aware inputs) ---------- */
   function renderSections(){
     const host=$("sections"); host.innerHTML="";
+    const fieldByName = Object.fromEntries(parcels.fields.map(f=>[f.name.toLowerCase(), f]));
+
     for(const sec of SECTIONS){
       const secDiv=document.createElement("section");
       secDiv.className="section";
       secDiv.innerHTML=`<header><h3>${sec.title}</h3></header><div class="body"></div>`;
       const body=secDiv.querySelector(".body");
+
       for(const it of sec.items){
         if(it.custom && it.field==="__notes__"){
           const block=document.createElement("div");
@@ -324,9 +322,24 @@ require([
           block.querySelector("#inlineNotesHost").replaceWith(inlineNotesList);
           continue;
         }
-        const ctrl = it.textarea ? `<textarea id="${it.field}" ${it.editable?"":"disabled"}></textarea>`
-                                 : `<input id="${it.field}" ${it.editable?"":"disabled"} />`;
-        body.insertAdjacentHTML("beforeend", `<div class="row"><label for="${it.field}">${it.alias}</label><div class="field">${ctrl}</div></div>`);
+
+        // decide control
+        let ctrlHtml;
+        const svcField = fieldByName[it.field.toLowerCase()];
+        const hasDomain = !!(svcField && svcField.domain && svcField.domain.codedValues?.length && it.editable);
+
+        if (hasDomain) {
+          const opts = svcField.domain.codedValues
+            .map(cv=>`<option value="${cv.code}">${cv.name}</option>`).join("");
+          ctrlHtml = `<select id="${it.field}" ${it.editable?"":"disabled"}>${opts}</select>`;
+        } else if (it.textarea) {
+          ctrlHtml = `<textarea id="${it.field}" ${it.editable?"":"disabled"}></textarea>`;
+        } else {
+          ctrlHtml = `<input id="${it.field}" ${it.editable?"":"disabled"} />`;
+        }
+
+        body.insertAdjacentHTML("beforeend",
+          `<div class="row"><label for="${it.field}">${it.alias}</label><div class="field">${ctrlHtml}</div></div>`);
       }
       host.appendChild(secDiv);
     }
@@ -342,7 +355,7 @@ require([
       lbl.appendChild(btn);
     });
 
-    // Debug helper – warns if a field/key is missing (so you can rename).
+    // Debug helper
     FIELD_NOTE_MAP.forEach(m=>{
       if (!document.getElementById(m.parcel)) console.warn("Notes button skipped – parcel field not in form:", m.parcel);
       m.notes.forEach(k=>{ if(!N[k]) console.warn("Notes filter key not found on table:", k); });
@@ -447,15 +460,15 @@ require([
     view.ui.add(search,"top-right");
     search.on("select-result",e=>e.result?.feature&&setParcel(e.result.feature));
 
-    clearBtn=document.createElement("div");
+    const clearBtn=document.createElement("div");
     clearBtn.className="clearBtn"; clearBtn.title="Clear selection"; clearBtn.textContent="Clear";
     clearBtn.onclick=clearSelection; view.ui.add(clearBtn,"top-right");
 
     view.on("click",onMapClick);
 
-    renderSections();
-    buildNotesEditorUI();
-    addFieldNoteButtons();
+    renderSections();      // domain-aware
+    buildNotesEditorUI();  // notes editor form
+    addFieldNoteButtons(); // mini notes buttons
   }).catch(e=>{console.error(e);});
 
   function buildNotesEditorUI(){
@@ -489,10 +502,23 @@ require([
     view.graphics.add(new Graphic({geometry:g.geometry,symbol:{type:"simple-fill",color:[0,120,255,0.18],outline:{type:"simple-line",color:[0,120,255,1],width:2}}}));
     if(g.geometry?.extent) view.goTo(g.geometry.extent.expand(1.2)).catch(()=>{});
 
+    // populate fields + respect domains
+    const svcFields = Object.fromEntries(parcels.fields.map(f=>[f.name.toLowerCase(), f]));
     for(const m of FIELD_MAP){
       const el=$(m.field); if(!el) continue;
-      let v=g.attributes[m.field]; if(m.field==="lot_area"&&v!=null) v=(v/10000).toFixed(3);
-      el.value=v??"";
+      const svcField = svcFields[m.field.toLowerCase()];
+      let v=g.attributes[m.field];
+
+      // unit display for lot_area (service may store m²)
+      if(m.field==="lot_area" && v!=null){
+        v=(v/10000).toFixed(3); // display ha
+      }
+      if (svcField?.domain && svcField.domain.codedValues?.length && m.editable) {
+        // select expects code
+        el.value = v ?? "";
+      } else {
+        el.value = v ?? "";
+      }
     }
     _notesFilterKeys=null; loadNotes();
   }
@@ -576,15 +602,12 @@ require([
 
     const parentGID = selectedParcel.attributes[F_GID];
     const attrs = {};
-
-    // FK is needed on add
-    if (N.fk) attrs[N.fk] = parentGID;
+    if (N.fk) attrs[N.fk] = parentGID; // FK on add
 
     NOTES_SCHEMA.forEach(s => {
       const el = document.getElementById(`n_${s.key}`);
       if (!el || !N[s.key]) return;
       const svcName = N[s.key];
-      // send if editable OR adding a new record
       if (editableNoteSet.has(svcName.toLowerCase()) || !selectedNoteOID) {
         let v = el.value?.trim() || null;
         if (s.type === "date" && v) v = new Date(v);
@@ -641,28 +664,47 @@ require([
     }
   };
 
-  /* ------- Parcel save: ONLY editable fields -------- */
+  /* ------- Parcel save: ONLY editable + typed + domain-safe -------- */
   $("saveParcel").onclick = async () => {
     if (!selectedParcel) return;
 
     const attrs = { [F_OID]: selectedParcel.attributes[F_OID] };
-
-    const editableSet = new Set(
-      parcels.fields.filter(f => f.editable).map(f => f.name.toLowerCase())
+    const editableByName = Object.fromEntries(
+      parcels.fields.filter(f => f.editable).map(f => [f.name.toLowerCase(), f])
     );
 
     for (const m of FIELD_MAP) {
       const el = document.getElementById(m.field);
       if (!el) continue;
-      if (editableSet.has(m.field.toLowerCase())) {
-        let v = el.value;
-        if (v === "") v = null;
-        if (m.field === "lot_area" && v != null) {
-          const num = Number(v);
-          if (!Number.isNaN(num)) v = Math.round(num * 10000); // ha -> m²
-        }
-        attrs[m.field] = v;
+      const svcField = editableByName[m.field.toLowerCase()];
+      if (!svcField) continue;                 // skip non-editable service fields
+
+      let v = (el.tagName === "SELECT") ? el.value : el.value;
+      if (v === "") v = null;
+
+      // type coercion
+      switch (svcField.type) {
+        case "integer":
+        case "small-integer":
+          v = (v==null) ? null : parseInt(v, 10);
+          if (Number.isNaN(v)) v = null;
+          break;
+        case "double":
+        case "single":
+          // special case: lot_area shown as ha, service might store m²
+          if (m.field === "lot_area" && v != null) {
+            const num = Number(v);
+            v = Number.isNaN(num) ? null : Math.round(num * 10000); // ha -> m²
+          } else {
+            const num = Number(v);
+            v = Number.isNaN(num) ? null : num;
+          }
+          break;
+        default:
+          // strings & others stay as-is (respect domain codes if present)
+          break;
       }
+      attrs[m.field] = v;
     }
 
     try {
