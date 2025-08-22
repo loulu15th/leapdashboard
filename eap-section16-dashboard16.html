@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>LEAP — Section 16 (Dashboard)</title>
+<link rel="stylesheet" href="https://js.arcgis.com/4.29/esri/themes/light/main.css" />
+<style>
+  :root{ --panelW:44vw; --panelWCollapsed:380px; }
+  html,body{height:100%;margin:0}
+  #wrap{display:flex;height:100%}
+  #map{position:relative;flex:1}
+  #view{position:absolute;inset:0}
+  #status{position:absolute;left:10px;bottom:10px;background:#111d;color:#fff;padding:6px 10px;border-radius:8px;font-size:12px;display:none}
+
+  /* parcel panel */
+  #panel{width:var(--panelWCollapsed);max-width:860px;background:#fff;border-left:1px solid #e6e6e6;overflow:auto;transition:width .2s ease}
+  #panel.open{width:var(--panelW)}
+  #panel .pad{padding:16px 18px}
+  h2{margin:6px 0 2px;color:#003087}
+  .section{margin:10px 0;border-top:1px solid #eee}
+  .section>header{display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:#fff;padding:8px 0;z-index:1}
+  .section h3{margin:0;color:#003087;font-weight:600}
+  .row{display:flex;gap:12px;margin:8px 0}
+  .row label{width:40%;font-weight:600;line-height:1.25}
+  .row .field{flex:1}
+  input,textarea{width:100%;padding:10px 12px;border:1px solid #d9d9d9;border-radius:10px;font-size:14px}
+  textarea{min-height:96px;resize:vertical}
+  .muted{color:#777}
+  .actionbar{display:flex;gap:8px;justify-content:flex-end;margin:14px 0}
+  .btn{background:#003087;color:#fff;border:0;border-radius:8px;padding:8px 12px;cursor:pointer}
+  .btn.secondary{background:#e9eefc;color:#003087}
+  .btn.danger{background:#b91c1c}
+  .pill{display:inline-block;border:1px solid #d0d7e2;border-radius:999px;padding:2px 8px;font-size:12px;background:#f5f8ff;margin-left:6px}
+
+  /* tiny Notes buttons next to labels */
+  .miniBtn{margin-left:6px;padding:2px 8px;border:1px solid #d0d7e2;border-radius:999px;background:#f5f8ff;font-size:12px;cursor:pointer}
+  .miniBtn:hover{background:#eaf1ff}
+
+  /* inline notes summary card */
+  .noteList{display:grid;gap:10px;max-height:240px;overflow:auto;margin-top:6px}
+  .noteCard{border:1px solid #e1e7f5;background:#fff;border-radius:10px;padding:8px;line-height:1.25}
+  .noteCard .head{font-weight:600;margin-bottom:4px}
+  .noteCard .kv{font-size:13px;margin:2px 0;white-space:normal}
+  .noteCard .lbl{color:#555}
+
+  /* resizable notes column + splitter */
+  #notesSplitter{width:6px;cursor:col-resize;background:linear-gradient(to right,#e6ecff,#d9e2ff);display:none}
+  #notesSplitter:hover{background:#cfe0ff}
+  #notesCol{width:420px;min-width:360px;border-left:1px solid #e6e6e6;background:#fafbff;display:none;flex-direction:column}
+  #notesCol header{display:flex;align-items:center;justify-content:space-between;padding:10px;border-bottom:1px solid #e6e6e6;font-weight:600}
+
+  /* notes list & editor split */
+  #notesList{padding:10px;overflow:auto;flex:1 1 auto;min-height:120px}
+  .relItem{border:1px solid #e1e7f5;background:#fff;border-radius:8px;padding:8px;margin:6px 0;cursor:pointer}
+  .relHead{font-weight:600;margin-bottom:4px}
+  #notesHSplitter{height:6px;cursor:row-resize;background:linear-gradient(#e6ecff,#d9e2ff);display:none}
+  #noteEditor{flex:0 0 260px;padding:10px;border-top:1px solid #e6e6e6}
+
+  /* collapsible groups inside note editor */
+  .ng{border:1px solid #e1e7f5;background:#fff;border-radius:10px;margin:10px 0}
+  .ng>button{all:unset;display:flex;justify-content:space-between;align-items:center;width:100%;padding:8px 10px;font-weight:600;cursor:pointer}
+  .ng>div{padding:8px 10px;border-top:1px solid #eef3ff}
+  .ng.collapsed>div{display:none}
+
+  @media (max-width:1100px){ :root{--panelW:52vw} #notesCol{width:380px;min-width:320px} }
+  @media (max-width:980px){ :root{--panelW:100vw} #panel{width:100vw} #notesCol{width:100vw} .row label{width:42%} }
+</style>
+<script src="https://js.arcgis.com/4.29/"></script>
+</head>
+<body>
+<div id="wrap">
+  <div id="map"><div id="view"></div><div id="status"></div></div>
+
+  <div id="panel">
+    <div class="pad">
+      <h2>Section 16 Assessment <span id="parcelTag" class="pill" style="display:none"></span></h2>
+      <div id="startHint" class="muted">Select a parcel on the map or search Lot/Plan.</div>
+      <div id="sections" style="display:none"></div>
+      <div class="actionbar">
+        <button id="saveParcel" class="btn" disabled>Save Parcel</button>
+        <button id="btnToggleNotes" class="btn secondary" style="display:none">Notes</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="notesSplitter" title="Drag to resize notes"></div>
+
+  <div id="notesCol">
+    <header>
+      <span>Notes <span id="relCount" class="pill">0</span></span>
+      <button id="btnCloseNotes" class="btn secondary" type="button">Hide</button>
+    </header>
+    <div id="notesList"></div>
+    <div id="notesHSplitter" title="Drag to resize"></div>
+    <div id="noteEditor">
+      <div style="font-weight:600;margin:4px 0 8px">Add / Edit Note</div>
+      <!-- groups injected here -->
+      <div class="actionbar" style="justify-content:flex-start">
+        <button id="btnNewNote" class="btn secondary" type="button">New</button>
+        <button id="btnSaveNote" class="btn" type="button">Save Note</button>
+        <button id="btnDeleteNote" class="btn danger" type="button" disabled>Delete</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+require([
+  "esri/config","esri/identity/IdentityManager",
+  "esri/Map","esri/views/MapView","esri/layers/FeatureLayer",
+  "esri/widgets/Search","esri/Graphic"
+], function(esriConfig, esriId, Map, MapView, FeatureLayer, Search, Graphic){
+
+  /* === Service endpoints (NEW) === */
+  const PORTAL_URL  = "https://uat-qportal.information.qld.gov.au/portal";
+  const PARCELS_URL = "https://uat-qportal.information.qld.gov.au/arcgis/rest/services/IDI/LEAP_ClaimParcels_new/FeatureServer/0";
+  const NOTES_URL   = "https://uat-qportal.information.qld.gov.au/arcgis/rest/services/IDI/LEAP_ClaimParcels_new/FeatureServer/1";
+  const REL_ID      = 0;
+  const SEARCH_HINT = "e.g. 45SP164230";
+
+  // CORS/trusted + sign-in (if org requires)
+  try{const u=new URL(PARCELS_URL);esriConfig.request.trustedServers.push(`${u.protocol}//${u.host}`);esriConfig.request.corsEnabledServers.push(u.host);}catch(e){}
+  esriConfig.portalUrl = PORTAL_URL;
+  esriId.checkSignInStatus(PORTAL_URL + "/sharing").catch(()=>{ /* silent – edits will 302 to sign-in if needed */ });
+
+  /* ===== UTIL ===== */
+  const $=id=>document.getElementById(id);
+  const fmt=d=>d?new Date(d).toISOString().slice(0,10):"";
+  const findField=(layer,names)=>{const low=layer.fields.map(f=>f.name.toLowerCase());for(const n of names){const i=low.indexOf(n.toLowerCase());if(i>-1)return layer.fields[i].name;}return null;};
+
+  /* ===== LAYERS ===== */
+  const parcels=new FeatureLayer({url:PARCELS_URL,outFields:["*"],popupEnabled:false});
+  const notes  =new FeatureLayer({url:NOTES_URL,  outFields:["*"],popupEnabled:false});
+
+  /* ===== MAP ===== */
+  const map=new Map({basemap:"satellite",layers:[parcels]});
+  const view=new MapView({container:"view",map,center:[145,-24],zoom:6});
+
+  /* ===== STATE ===== */
+  let F_OID,F_GID,F_LOTPLAN,SEARCH_FIELD_NAME="lotplan";
+  let selectedParcel=null, selectedNoteOID=null;
+  let inlineNotesList=null, _notesFilterKeys=null, N_resolved=false;
+  const N={}; // resolved notes field names
+
+  /* ===== SCHEMA ===== */
+
+  // parcel UI
+  const SECTIONS=[
+    { title:"Parcel Details", items:[
+      { field:"lotplan", alias:"Lot/Plan", editable:false },
+      { field:"title_ref", alias:"Title Reference", editable:true },
+      { field:"prop_addr", alias:"Property Address", editable:true },
+      { field:"lot_area", alias:"Area (ha)", editable:true },
+      { field:"tenure", alias:"Tenure", editable:false },
+      { field:"reg_owner", alias:"Registered Owner/Trustee", editable:true },
+      { field:"shire_name", alias:"Local Government Area", editable:false },
+      { field:"__notes__", alias:"Notes", custom:true }
+    ]},
+    { title:"Administrative Attributes", items:[
+      { field:"access_l", alias:"Access (Legal)", editable:true },
+      { field:"access_p", alias:"Access (Practical)", editable:true },
+      { field:"qvas_val", alias:"Current Valuation", editable:true },
+      { field:"elvas_ref", alias:"eLVAS Cases", editable:true },
+      { field:"surv_ind", alias:"Survey Indicator", editable:false }
+    ]},
+    { title:"Site History & Background", items:[
+      { field:"nt_status", alias:"Native Title Status", editable:true },
+      { field:"ind_cul_he", alias:"Indigenous Cultural Heritage", editable:true },
+      { field:"qld_cul_he", alias:"Qld Cultural Heritage", editable:true },
+      { field:"ten_hist", alias:"Historical Tenure", editable:true }
+    ]},
+    { title:"Environment & Planning", items:[
+      { field:"contam_lan", alias:"Contaminated Land", editable:true },
+      { field:"stk_route",  alias:"Stock Route", editable:true },
+      { field:"plan_schem", alias:"Planning Scheme", editable:true },
+      { field:"regional_plan", alias:"Regional Plan", editable:true, textarea:true },
+      { field:"flooding",   alias:"Flood Hazard", editable:true },
+      { field:"bushfire",   alias:"Bushfire Hazard", editable:true },
+      { field:"coastal_mgmt", alias:"Coastal Management", editable:true },
+      { field:"veg_mgmt_cat", alias:"Veg Mgmt Categories", editable:true },
+      { field:"veg_mgmt_reg_eco", alias:"Veg Mgmt Reg Ecos", editable:true }
+    ]}
+  ];
+  const FIELD_MAP=SECTIONS.flatMap(s=>s.items).filter(i=>!i.custom);
+
+  // parcel field → note keys (fixed mappings)
+  const FIELD_NOTE_MAP=[
+    { parcel:"contam_lan", notes:["contam_reg"] },           // FIXED
+    { parcel:"plan_schem", notes:["planning_sch"] },         // FIXED
+    { parcel:"regional_plan", notes:["regional_plan"] },     // FIXED
+    { parcel:"flooding", notes:["flood"] },
+    { parcel:"bushfire", notes:["bushfire"] },
+    { parcel:"stk_route", notes:["stock_routes"] },
+    { parcel:"mine_int", notes:["mine_explor"] },
+    { parcel:"elvas_ref", notes:["elvas_check"] },
+    { parcel:"qld_cul_he", notes:["qld_heritage"] },
+    { parcel:"ind_cul_he", notes:["indig_cul_her"] },
+    { parcel:"nt_status", notes:["native_title"] },
+    { parcel:"plan_const", notes:["constraints"] },
+    { parcel:"coastal_mgmt", notes:["env_conserv"] },
+    { parcel:"veg_mgmt_cat", notes:["vegetation"] },
+    { parcel:"veg_mgmt_reg_eco", notes:["vegetation"] },
+    { parcel:"prop_addr", notes:["prop_location"] },
+    { parcel:"ten_hist", notes:["site_hist_bg"] }
+  ];
+
+  // notes canonical fields (model names → actual field names resolved after load)
+  const NOTE_FIELDS={
+    oid:"objectid", fk:"parcelguid", date:"s16_note_date", prepared:"s16_preparedby", lotplan:"s16_lotplan",
+    rpt_purpose:"s16_rpt_purpose", prop_location:"s16_prop_location", site_hist_bg:"s16_site_hist_bg",
+    cur_use_lot:"s16_cur_use_lot", sur_use_lot:"s16_sur_use_lot", leg_pol_guide:"s16_leg_pol_guide",
+    planning_sch:"s16_planning_sch", state_plan_pol:"s16_state_plan_pol", native_title:"s16_native_title",
+    indig_cul_her:"s16_indig_cul_her", qld_heritage:"s16_qld_heritage", contam_reg:"s16_contam_reg",
+    env_conserv:"s16_env_conserv", mine_explor:"s16_mine_explor", elvas_check:"s16_elvas_check",
+    constraints:"s16_constraints", regional_plan:"s16_regional_plan", recommendations:"s16_recommendations",
+    flood:"s16_flood", bushfire:"s16_bushfire", stock_routes:"s16_stock_routes", uxo:"s16_uxo",
+    cul_her_mgmt:"s16_cul_her_mgmt", vegetation:"s16_vegetation"
+  };
+
+  // grouped editor (no comments inside arrays to keep JS happy)
+  const NOTES_SCHEMA_GROUPS=[
+    { title:"General", keys:[
+      {key:"prepared",label:"Prepared by"},
+      {key:"date",label:"Note Date",type:"date"},
+      {key:"lotplan",label:"Lot/Plan"},
+      {key:"rpt_purpose",label:"Purpose of Report",type:"textarea"},
+      {key:"prop_location",label:"Property Location",type:"textarea"}
+    ]},
+    { title:"Site History & Background", keys:[
+      {key:"site_hist_bg",label:"Site History & Background",type:"textarea"}
+    ]},
+    { title:"Environment & Planning", keys:[
+      {key:"cur_use_lot",label:"Current use of Lot",type:"textarea"},
+      {key:"sur_use_lot",label:"Surrounding land uses/Tenure",type:"textarea"},
+      {key:"leg_pol_guide",label:"Legislation Policies & Guidelines",type:"textarea"},
+      {key:"planning_sch",label:"Planning Scheme",type:"textarea"},
+      {key:"state_plan_pol",label:"State Planning Policy",type:"textarea"},
+      {key:"regional_plan",label:"Regional Plan",type:"textarea"},
+      {key:"contam_reg",label:"Contam Land & Env Register",type:"textarea"},
+      {key:"env_conserv",label:"Environment/Conservation",type:"textarea"},
+      {key:"flood",label:"Flooding",type:"textarea"},
+      {key:"bushfire",label:"Bushfire",type:"textarea"},
+      {key:"stock_routes",label:"Stock Routes",type:"textarea"},
+      {key:"vegetation",label:"Vegetation",type:"textarea"}
+    ]},
+    { title:"Social & Cultural", keys:[
+      {key:"native_title",label:"Native Title",type:"textarea"},
+      {key:"indig_cul_her",label:"Indigenous Cultural Heritage",type:"textarea"},
+      {key:"qld_heritage",label:"Queensland Heritage Register",type:"textarea"},
+      {key:"mine_explor",label:"Mining & Exploration",type:"textarea"},
+      {key:"elvas_check",label:"eLVAS & File Check",type:"textarea"},
+      {key:"constraints",label:"Constraints/Opportunities",type:"textarea"},
+      {key:"uxo",label:"Unexploded Ordnance",type:"textarea"},
+      {key:"cul_her_mgmt",label:"Cultural Heritage Management Plan",type:"textarea"},
+      {key:"recommendations",label:"Recommendations",type:"textarea"}
+    ]}
+  ];
+
+  /* ===== RENDER PARCEL PANEL ===== */
+  function renderSections(){
+    const host=$("sections"); host.innerHTML="";
+    for(const sec of SECTIONS){
+      const secDiv=document.createElement("section");
+      secDiv.className="section";
+      secDiv.innerHTML=`<header><h3>${sec.title}</h3></header><div class="body"></div>`;
+      const body=secDiv.querySelector(".body");
+      for(const it of sec.items){
+        if(it.custom && it.field==="__notes__"){
+          const block=document.createElement("div");
+          block.innerHTML=`
+            <div class="row"><label>Notes</label>
+              <div class="field">
+                <div class="noteList" id="inlineNotesHost"></div>
+                <div class="muted" style="margin-top:6px"><span class="link" id="openNotes">Open notes panel</span></div>
+              </div>
+            </div>`;
+          body.appendChild(block);
+          block.querySelector("#openNotes").onclick=()=>{$("btnToggleNotes").click();};
+          inlineNotesList=document.createElement("div"); inlineNotesList.className="noteList";
+          block.querySelector("#inlineNotesHost").replaceWith(inlineNotesList);
+          continue;
+        }
+        const ctrl = it.textarea ? `<textarea id="${it.field}" ${it.editable?"":"disabled"}></textarea>`
+                                 : `<input id="${it.field}" ${it.editable?"":"disabled"} />`;
+        body.insertAdjacentHTML("beforeend", `<div class="row"><label for="${it.field}">${it.alias}</label><div class="field">${ctrl}</div></div>`);
+      }
+      host.appendChild(secDiv);
+    }
+  }
+
+  function addFieldNoteButtons(){
+    FIELD_NOTE_MAP.forEach(m=>{
+      const input=document.getElementById(m.parcel); if(!input) return;
+      const row=input.closest(".row"); const lbl=row?.querySelector("label"); if(!lbl) return;
+      const btn=document.createElement("button");
+      btn.className="miniBtn"; btn.type="button"; btn.textContent="Notes";
+      btn.onclick=()=>openNotesFor(m.notes);
+      lbl.appendChild(btn);
+    });
+  }
+
+  /* ===== NOTES COLUMN / SPLITTERS ===== */
+  (function setupSplitters(){
+    const notesCol=$("notesCol"), vSplit=$("notesSplitter"), hSplit=$("notesHSplitter");
+    const notesList=$("notesList"), noteEditor=$("noteEditor");
+    let notesWidth=420, editorHeight=260;
+
+    function applySizes(){
+      notesWidth=Math.max(300,Math.min(800,notesWidth));
+      notesCol.style.width=notesWidth+"px"; notesCol.style.minWidth=Math.min(360,notesWidth)+"px";
+      const totalH=notesCol.clientHeight, minEditor=140, minList=120;
+      editorHeight=Math.max(minEditor,Math.min(totalH-minList,editorHeight));
+      noteEditor.style.flex=`0 0 ${editorHeight}px`; notesList.style.flex=`1 1 ${totalH-editorHeight}px`;
+    }
+
+    vSplit.addEventListener("mousedown",(e)=>{
+      e.preventDefault(); const startX=e.clientX, startW=notesCol.getBoundingClientRect().width;
+      function onMove(ev){ notesWidth = startW + (ev.clientX - startX); applySizes(); }
+      function onUp(){ window.removeEventListener("mousemove",onMove); window.removeEventListener("mouseup",onUp); }
+      window.addEventListener("mousemove",onMove); window.addEventListener("mouseup",onUp);
+    });
+
+    hSplit.addEventListener("mousedown",(e)=>{
+      e.preventDefault(); const startY=e.clientY, startH=noteEditor.getBoundingClientRect().height||editorHeight;
+      function onMove(ev){ editorHeight = startH + (ev.clientY - startY); applySizes(); }
+      function onUp(){ window.removeEventListener("mousemove",onMove); window.removeEventListener("mouseup",onUp); }
+      window.addEventListener("mousemove",onMove); window.addEventListener("mouseup",onUp);
+    });
+
+    const ro=new ResizeObserver(applySizes); ro.observe(notesCol); applySizes();
+
+    $("btnCloseNotes").addEventListener("click",(e)=>{ e.preventDefault(); e.stopPropagation(); notesCol.style.display="none"; vSplit.style.display="none"; });
+
+    window.__openNotes=function(){
+      notesCol.style.display="flex"; vSplit.style.display="block"; hSplit.style.display="block"; applySizes();
+    };
+  })();
+
+  /* ===== BUILD NOTES EDITOR (COLLAPSIBLE GROUPS) ===== */
+  function buildNotesEditorUI(){
+    const host=$("noteEditor");
+    NOTES_SCHEMA_GROUPS.forEach((group,gi)=>{
+      const g=document.createElement("div"); g.className="ng collapsed";
+      const header=document.createElement("button");
+      header.innerHTML=`<span>${group.title}</span><span style="opacity:.6">▸</span>`;
+      const body=document.createElement("div");
+      group.keys.forEach(s=>{
+        const ctl = s.type==="textarea"
+          ? `<textarea id="n_${s.key}" rows="2"></textarea>`
+          : `<input id="n_${s.key}" ${s.type==="date"?'type="date"':''}/>`;
+        body.insertAdjacentHTML("beforeend", `<div class="row"><label>${s.label}</label><div class="field">${ctl}</div></div>`);
+      });
+      header.onclick=()=>{ g.classList.toggle("collapsed"); header.lastChild.textContent = g.classList.contains("collapsed")?"▸":"▾"; };
+      if(gi===0) g.classList.remove("collapsed");
+      g.appendChild(header); g.appendChild(body);
+      host.insertBefore(g, host.querySelector(".actionbar"));
+    });
+  }
+
+  /* ===== INLINE NOTE CARD ===== */
+  function makeNoteCard(attrs,clickable){
+    const title=(attrs[N.prepared]||"(no author)")+(attrs[N.date]?" — "+fmt(attrs[N.date]):"");
+    const kv=[]; let shown=0;
+    const order=["rpt_purpose","contam_reg","planning_sch","regional_plan","flood","bushfire"];
+    order.forEach(k=>{
+      if(shown>=3) return;
+      const fld=N[k]; if(!fld) return; const v=attrs[fld];
+      if(v!=null && v!==""){ kv.push(`<div class="kv"><span class="lbl">${k.replaceAll("_"," ")}:</span> ${v}</div>`); shown++; }
+    });
+    return `<div class="${clickable?'relItem':'noteCard'}" ${clickable?`data-oid="${attrs[N.oid]}"`:""}>
+      <div class="${clickable?'relHead':'head'}">${title}</div>${kv.join("")||`<div class="kv"><i class="muted">No details.</i></div>`}
+    </div>`;
+  }
+
+  /* ===== BOOTSTRAP ===== */
+  Promise.all([parcels.load(),notes.load()]).then(()=>{
+    // resolve parcel key fields
+    F_OID=findField(parcels,["OBJECTID","objectid"]);
+    F_GID=findField(parcels,["globalid","GlobalID","GlobalID_1"]);
+    F_LOTPLAN=findField(parcels,["lotplan","LOTPLAN"]); SEARCH_FIELD_NAME=F_LOTPLAN||"lotplan";
+
+    // resolve notes fields
+    for(const [k,name] of Object.entries(NOTE_FIELDS)){
+      if(k==="oid") N.oid=findField(notes,[name,"OBJECTID","objectid"]);
+      else if(k==="fk") N.fk=findField(notes,[name,"ParcelGUID","parcelguid","guid"]);
+      else N[k]=findField(notes,[name]);
+    }
+    N_resolved=true;
+
+    // search widget
+    const search=new Search({
+      view, includeDefaultSources:false,
+      sources:[{layer:parcels,searchFields:[SEARCH_FIELD_NAME],displayField:SEARCH_FIELD_NAME,outFields:["*"],name:"Lot/Plan",placeholder:SEARCH_HINT,resultGraphicEnabled:false}]
+    });
+    view.ui.add(search,"top-right");
+    search.on("select-result",e=>e.result?.feature&&setParcel(e.result.feature));
+
+    // clear button
+    const clearBtn=document.createElement("div");
+    clearBtn.className="btn secondary"; clearBtn.style.marginLeft="8px"; clearBtn.textContent="Clear";
+    clearBtn.onclick=clearSelection; view.ui.add(clearBtn,"top-right");
+
+    view.on("click",onMapClick);
+
+    renderSections();
+    buildNotesEditorUI();
+    addFieldNoteButtons();
+    applyMaxLengths();               // set maxlengths based on schema
+  }).catch(console.error);
+
+  /* ===== MAXLENGTH from schema ===== */
+  function applyMaxLengths(){
+    // parcel inputs
+    FIELD_MAP.forEach(m=>{
+      const el=$(m.field); if(!el) return;
+      const f=parcels.fields.find(x=>x.name.toLowerCase()===m.field.toLowerCase());
+      if(f && f.type==="string" && f.length){ el.maxLength=f.length; }
+    });
+    // notes inputs
+    NOTES_SCHEMA_GROUPS.forEach(g=>{
+      g.keys.forEach(k=>{
+        const el=$(`n_${k.key}`); if(!el) return;
+        const fldName=N[k.key]; if(!fldName) return;
+        const f=notes.fields.find(x=>x.name.toLowerCase()===fldName.toLowerCase());
+        if(f && f.type==="string" && f.length){ el.maxLength=f.length; }
+      });
+    });
+  }
+
+  /* ===== MAP SELECTION ===== */
+  async function onMapClick(evt){
+    const hit=await view.hitTest(evt);
+    const g=hit.results?.find(r=>r.graphic?.layer===parcels)?.graphic;
+    if(g) setParcel(g); else clearSelection();
+  }
+
+  function setParcel(g){
+    selectedParcel=g;
+    $("panel").classList.add("open");
+    $("sections").style.display="block";
+    $("saveParcel").disabled=false; $("btnToggleNotes").style.display="inline-block";
+    $("startHint").style.display="none"; $("parcelTag").style.display="inline-block";
+    $("parcelTag").textContent=g.attributes[F_LOTPLAN]||g.attributes[F_GID];
+
+    view.graphics.removeAll();
+    view.graphics.add(new Graphic({geometry:g.geometry,symbol:{type:"simple-fill",color:[0,120,255,0.18],outline:{type:"simple-line",color:[0,120,255,1],width:2}}}));
+    if(g.geometry?.extent) view.goTo(g.geometry.extent.expand(1.2)).catch(()=>{});
+
+    for(const m of FIELD_MAP){
+      const el=$(m.field); if(!el) continue;
+      let v=g.attributes[m.field]; if(m.field==="lot_area"&&v!=null) v=(v/10000).toFixed(3);
+      el.value=v??"";
+    }
+    _notesFilterKeys=null;
+    loadNotes();
+  }
+
+  function clearSelection(){
+    selectedParcel=null; selectedNoteOID=null; view.graphics.removeAll();
+    $("panel").classList.remove("open"); $("sections").style.display="none"; $("saveParcel").disabled=true; $("btnToggleNotes").style.display="none";
+    $("parcelTag").style.display="none"; $("startHint").style.display="block";
+    $("notesCol").style.display="none"; $("notesSplitter").style.display="none";
+  }
+
+  /* ===== NOTES ===== */
+  function openNotesFor(noteKeys){ _notesFilterKeys=noteKeys; $("btnToggleNotes").click(); loadNotes(_notesFilterKeys); }
+  $("btnToggleNotes").onclick=()=>window.__openNotes();
+
+  async function loadNotes(filterKeys=null){
+    if(!N_resolved||!selectedParcel) return;
+    window.__openNotes();
+
+    $("notesList").innerHTML="<div class='muted' style='padding:8px'>Loading…</div>";
+    inlineNotesList.innerHTML="<div class='muted'>Loading…</div>";
+    selectedNoteOID=null;
+
+    const id=selectedParcel.attributes[F_OID];
+    const rel=await parcels.queryRelatedFeatures({relationshipId:REL_ID,objectIds:[id],outFields:["*"]});
+    let rows=rel[id]?.features??[];
+
+    // filter/highlight by keys
+    let filtered=rows;
+    if(filterKeys&&filterKeys.length){
+      filtered=rows.filter(f=>{
+        const a=f.attributes;
+        return filterKeys.some(k=>{const fld=N[k];return fld&&a[fld]!=null&&a[fld]!=="";});
+      });
+    }
+    $("relCount").textContent=filtered.length;
+
+    $("notesList").innerHTML=filtered.length
+      ? filtered.map(f=>makeNoteCard(f.attributes,true)).join("")
+      : "<div class='muted' style='padding:8px'>No notes for this topic.</div>";
+
+    inlineNotesList.innerHTML=rows.length
+      ? rows.map(f=>makeNoteCard(f.attributes,false)).join("")
+      : "<div class='muted'>No notes.</div>";
+
+    // click -> load editor
+    [...$("notesList").querySelectorAll(".relItem")].forEach(div=>{
+      div.onclick=async ()=>{
+        selectedNoteOID=+div.getAttribute("data-oid");
+        const {features}=await notes.queryFeatures({where:`${N.oid}=${selectedNoteOID}`,outFields:["*"]});
+        if(!features.length) return; const a=features[0].attributes;
+        NOTES_SCHEMA_GROUPS.forEach(gr=>{
+          gr.keys.forEach(s=>{
+            const el=$(`n_${s.key}`); if(!el) return;
+            el.value = (s.type==="date") ? (a[N[s.key]]?fmt(a[N[s.key]]):"") : (a[N[s.key]]||"");
+          });
+        });
+        $("btnDeleteNote").disabled=false;
+      };
+    });
+
+    // pre-focus for a filtered key (e.g., clicked ‘Notes’ next to a field)
+    if(filterKeys && !filtered.length){
+      resetNoteForm();
+      const firstKey=filterKeys.find(k=>N[k]); const el=firstKey?$(`n_${firstKey}`):null; if(el) el.focus();
+    }
+  }
+
+  function resetNoteForm(){
+    if(!selectedParcel) return;
+    NOTES_SCHEMA_GROUPS.forEach(gr=>{
+      gr.keys.forEach(s=>{
+        const el=$(`n_${s.key}`); if(!el) return;
+        if(s.key==="lotplan") el.value=selectedParcel.attributes[F_LOTPLAN]||"";
+        else el.value="";
+      });
+    });
+    $("btnDeleteNote").disabled=true; selectedNoteOID=null;
+  }
+  $("btnNewNote").onclick=resetNoteForm;
+
+  async function verifyAndToast(layer,oid,fldVals){
+    try{
+      const q=await layer.queryFeatures({where:`${layer.objectIdField}=${oid}`,outFields:Object.keys(fldVals)});
+      const ok=q.features.length && Object.entries(fldVals).every(([k,v]) => (q.features[0].attributes[k]??null)===(v??null));
+      alert(ok ? "Saved (verified)" : "Saved (please verify)");
+    }catch{ alert("Saved (please verify)"); }
+  }
+
+  $("btnSaveNote").onclick=async ()=>{
+    if(!selectedParcel) return;
+    const parentGID=selectedParcel.attributes[F_GID];
+    const attrs={}; NOTES_SCHEMA_GROUPS.forEach(gr=>{
+      gr.keys.forEach(s=>{
+        const el=$(`n_${s.key}`); if(!el) return;
+        const v=el.value?.trim()||null; if(N[s.key]) attrs[N[s.key]]=(s.type==="date"&&v)?new Date(v):v;
+      });
+    });
+    if(N.fk) attrs[N.fk]=parentGID;
+
+    let res, ok=false, oidToVerify=null;
+    if(selectedNoteOID){ attrs[N.oid]=selectedNoteOID; res=await notes.applyEdits({updateFeatures:[{attributes:attrs}]}); ok=res.updateFeatureResults?.[0]?.success; oidToVerify=selectedNoteOID; }
+    else{ res=await notes.applyEdits({addFeatures:[{attributes:attrs}]}); ok=res.addFeatureResults?.[0]?.success; oidToVerify=res.addFeatureResults?.[0]?.objectId; }
+
+    if(ok || oidToVerify){ await verifyAndToast(notes, oidToVerify, attrs); loadNotes(_notesFilterKeys); }
+    else { alert("Save failed"); console.log("Note save response:",res); }
+  };
+
+  $("btnDeleteNote").onclick=async ()=>{
+    if(!selectedNoteOID) return;
+    const res=await notes.applyEdits({deleteFeatures:[{objectId:selectedNoteOID}]});
+    if(res.deleteFeatureResults?.[0]?.success){ selectedNoteOID=null; loadNotes(_notesFilterKeys); }
+    else { alert("Delete failed"); console.log(res); }
+  };
+
+  /* ===== SAVE PARCEL WITH VERIFIED MESSAGE ===== */
+  $("saveParcel").onclick=async ()=>{
+    if(!selectedParcel) return;
+    const upd={...selectedParcel.attributes};
+    for(const m of FIELD_MAP){ const el=$(m.field); if(el && m.editable){ upd[m.field]=el.value||null; } }
+    try{
+      const r=await parcels.applyEdits({updateFeatures:[{attributes:upd}]});
+      const ok=r.updateFeatureResults?.[0]?.success;
+      const oid=selectedParcel.attributes[F_OID];
+      await verifyAndToast(parcels, oid, Object.fromEntries(FIELD_MAP.filter(f=>f.editable).map(f=>[f.field, upd[f.field]])));
+      if(!ok) console.log("Parcel save response (non-success but verified):", r);
+    }catch(e){ alert("Save failed"); console.log(e); }
+  };
+
+});
+</script>
+</body>
+</html>
